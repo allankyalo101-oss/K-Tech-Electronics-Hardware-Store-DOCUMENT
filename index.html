@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-Tech Electronics — Tech Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080A0F;
+  --ink: #F2EDE6;
+  --ink2: #A8A098;
+  --ink3: #5A5450;
+  --ink4: #2E2C2A;
+  --amber: #E8A830;
+  --amber-dim: #E8A83014;
+  --cyan: #00C8E0;
+  --cyan-dim: #00C8E010;
+  --green: #22C55E;
+  --green-dim: #22C55E10;
+  --red: #EF4444;
+  --red-dim: #EF444410;
+  --blue: #3B82F6;
+  --blue-dim: #3B82F610;
+  --purple: #A855F7;
+  --purple-dim: #A855F710;
+  --surface: #0D1018;
+  --card: #111620;
+  --border: #1C2030;
+  --border2: #242B3A;
+  --serif: 'Instrument Serif', Georgia, serif;
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--ink); font-family: var(--serif); font-size: 16px; line-height: 1.7; }
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 70% 50% at 15% 5%, #E8A83008, transparent 55%),
+              radial-gradient(ellipse 50% 40% at 85% 95%, #00C8E006, transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* LAYOUT */
+.page { max-width: 900px; margin: 0 auto; padding: 80px 28px 120px; position: relative; z-index: 1; }
+
+/* HEADER */
+.masthead { margin-bottom: 80px; }
+.masthead-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--amber); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+.masthead-eyebrow::before { content: ''; display: block; width: 40px; height: 1px; background: var(--amber); }
+.masthead h1 { font-size: clamp(36px, 7vw, 72px); font-weight: 400; line-height: 1.1; letter-spacing: -1px; margin-bottom: 8px; }
+.masthead h1 em { font-style: italic; color: var(--amber); }
+.masthead-sub { font-family: var(--mono); font-size: 12px; color: var(--ink3); letter-spacing: 1px; margin-top: 16px; }
+.masthead-meta { display: flex; gap: 32px; margin-top: 32px; flex-wrap: wrap; }
+.meta-item { font-family: var(--mono); font-size: 10px; }
+.meta-label { color: var(--ink3); letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 4px; }
+.meta-value { color: var(--ink); font-size: 13px; }
+
+/* DIVIDER */
+.rule { border: none; border-top: 1px solid var(--border); margin: 60px 0; }
+
+/* SECTION */
+.section { margin-bottom: 64px; }
+.section-header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 32px; }
+.section-num { font-family: var(--mono); font-size: 10px; color: var(--amber); letter-spacing: 2px; flex-shrink: 0; }
+.section-title { font-size: clamp(22px, 4vw, 32px); font-weight: 400; letter-spacing: -.5px; }
+.section-title em { font-style: italic; color: var(--amber); }
+
+/* PROSE */
+p { color: var(--ink2); margin-bottom: 16px; font-size: 15px; line-height: 1.85; }
+p strong { color: var(--ink); font-weight: 400; font-style: italic; }
+p.lead { font-size: 17px; color: var(--ink); line-height: 1.8; }
+
+/* PRINCIPLE CARDS */
+.principle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 32px; }
+.principle { background: var(--card); padding: 24px; }
+.principle-icon { font-size: 20px; margin-bottom: 12px; }
+.principle-title { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--amber); margin-bottom: 8px; }
+.principle-text { font-size: 13px; color: var(--ink2); line-height: 1.7; }
+
+/* LAYER CARDS */
+.layer { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px 28px; margin-bottom: 12px; position: relative; overflow: hidden; }
+.layer::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+.layer.l-browser::before { background: var(--cyan); }
+.layer.l-edge::before { background: var(--amber); }
+.layer.l-backend::before { background: var(--blue); }
+.layer.l-db::before { background: var(--green); }
+.layer.l-ai::before { background: var(--purple); }
+.layer.l-comms::before { background: var(--red); }
+.layer-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.layer-badge { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 3px 10px; border-radius: 3px; }
+.lb-cyan { background: var(--cyan-dim); color: var(--cyan); border: 1px solid #00C8E030; }
+.lb-amber { background: var(--amber-dim); color: var(--amber); border: 1px solid #E8A83030; }
+.lb-blue { background: var(--blue-dim); color: var(--blue); border: 1px solid #3B82F630; }
+.lb-green { background: var(--green-dim); color: var(--green); border: 1px solid #22C55E30; }
+.lb-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid #A855F730; }
+.lb-red { background: var(--red-dim); color: var(--red); border: 1px solid #EF444430; }
+.lb-free { background: #22C55E08; color: #22C55E; border: 1px solid #22C55E20; }
+.lb-strategic { background: #E8A83008; color: #E8A830; border: 1px solid #E8A83020; }
+.lb-future { background: #A855F708; color: #A855F7; border: 1px solid #A855F720; }
+.layer-name { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--ink); }
+.layer-host { font-family: var(--mono); font-size: 10px; color: var(--ink3); }
+.layer-desc { font-size: 13px; color: var(--ink2); margin-bottom: 12px; line-height: 1.7; }
+.layer-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-family: var(--mono); font-size: 9px; letter-spacing: .5px; padding: 3px 8px; border-radius: 3px; background: var(--border); color: var(--ink3); text-transform: uppercase; }
+.tag.hot { background: var(--amber-dim); color: var(--amber); }
+.tag.new { background: var(--cyan-dim); color: var(--cyan); }
+
+/* FEATURE TABLE */
+.feat-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; margin-bottom: 32px; }
+.feat-table thead th { text-align: left; padding: 10px 14px; color: var(--ink3); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.feat-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--ink2); vertical-align: top; }
+.feat-table tbody tr:last-child td { border-bottom: none; }
+.feat-table tbody tr:hover td { background: #FFFFFF04; }
+.feat-name { color: var(--ink); font-weight: 700; font-size: 12px; }
+.feat-who { font-size: 9px; letter-spacing: 1px; }
+.pill-admin { background: var(--blue-dim); color: var(--blue); border: 1px solid #3B82F620; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.pill-cust { background: var(--green-dim); color: var(--green); border: 1px solid #22C55E20; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.pill-both { background: var(--amber-dim); color: var(--amber); border: 1px solid #E8A83020; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.phase-0 { color: var(--cyan); }.phase-1 { color: var(--green); }.phase-2 { color: var(--amber); }.phase-3 { color: var(--purple); }
+
+/* ROADMAP */
+.roadmap { position: relative; padding-left: 32px; }
+.roadmap::before { content: ''; position: absolute; left: 10px; top: 8px; bottom: 8px; width: 1px; background: var(--border); }
+.phase { position: relative; margin-bottom: 40px; }
+.phase::before { content: ''; position: absolute; left: -26px; top: 6px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+.phase.p0::before { border-color: var(--cyan); background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+.phase.p1::before { border-color: var(--green); background: var(--green); }
+.phase.p2::before { border-color: var(--amber); background: transparent; }
+.phase.p3::before { border-color: var(--purple); background: transparent; }
+.phase-label { font-family: var(--mono); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+.phase-title { font-size: 18px; margin-bottom: 10px; }
+.phase-items { font-family: var(--mono); font-size: 11px; color: var(--ink2); line-height: 2; }
+.phase-items span { display: inline-block; margin-right: 6px; }
+
+/* CONNECTIONS */
+.conn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.conn-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+.conn-from { font-family: var(--mono); font-size: 9px; color: var(--ink3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+.conn-name { font-size: 14px; margin-bottom: 6px; }
+.conn-detail { font-family: var(--mono); font-size: 10px; color: var(--ink3); line-height: 1.8; }
+.arrow { color: var(--amber); margin: 0 4px; }
+
+/* FLOW DIAGRAM */
+.flow { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 24px 0; margin-bottom: 32px; }
+.flow-node { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; min-width: 140px; flex-shrink: 0; }
+.flow-arrow { display: flex; align-items: center; padding: 0 8px; color: var(--amber); font-size: 18px; flex-shrink: 0; }
+.flow-label { font-family: var(--mono); font-size: 8px; color: var(--ink3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+.flow-name { font-size: 13px; color: var(--ink); }
+
+/* SARAH BOX */
+.sarah-box { background: linear-gradient(135deg, #0D1018, #111620); border: 1px solid #A855F730; border-radius: 8px; padding: 28px; margin-bottom: 24px; position: relative; overflow: hidden; }
+.sarah-box::before { content: ''; position: absolute; top: -40px; right: -40px; width: 120px; height: 120px; background: var(--purple-dim); border-radius: 50%; }
+.sarah-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.sarah-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--purple-dim); border: 1px solid #A855F750; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.sarah-name { font-size: 18px; color: var(--ink); }
+.sarah-role { font-family: var(--mono); font-size: 9px; color: var(--purple); letter-spacing: 2px; text-transform: uppercase; }
+.sarah-abilities { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.sarah-ab { font-family: var(--mono); font-size: 10px; color: var(--ink3); padding: 8px 12px; background: #A855F708; border: 1px solid #A855F715; border-radius: 4px; line-height: 1.5; }
+.sarah-ab strong { color: var(--purple); display: block; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+
+/* COST TABLE */
+.cost-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+.cost-table thead th { text-align: left; padding: 10px 14px; color: var(--ink3); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.cost-table tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--ink2); }
+.cost-table tbody tr:last-child td { border-bottom: none; }
+.cost-0 { color: var(--green); }.cost-low { color: var(--amber); }.cost-med { color: var(--red); }
+
+/* DECISION BOX */
+.decision { background: var(--card); border: 1px solid var(--amber); border-radius: 8px; padding: 24px 28px; margin: 32px 0; }
+.decision-label { font-family: var(--mono); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--amber); margin-bottom: 10px; }
+.decision p { color: var(--ink); font-size: 14px; margin-bottom: 8px; }
+.decision p:last-child { margin-bottom: 0; }
+
+/* QUOTE */
+.quote { border-left: 3px solid var(--amber); padding: 16px 24px; margin: 32px 0; }
+.quote p { color: var(--ink); font-style: italic; font-size: 17px; margin: 0; }
+.quote-attr { font-family: var(--mono); font-size: 9px; color: var(--ink3); letter-spacing: 2px; text-transform: uppercase; margin-top: 8px; }
+
+/* FOOTER */
+footer { border-top: 1px solid var(--border); padding-top: 40px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+.footer-logo { font-family: var(--mono); font-size: 11px; color: var(--amber); letter-spacing: 3px; }
+.footer-meta { font-family: var(--mono); font-size: 9px; color: var(--ink3); text-align: right; line-height: 2; }
+
+/* RESPONSIVE */
+@media (max-width: 640px) {
+  .page { padding: 40px 18px 80px; }
+  .conn-grid { grid-template-columns: 1fr; }
+  .sarah-abilities { grid-template-columns: 1fr; }
+  .feat-table { font-size: 10px; }
+  .feat-table thead th, .feat-table tbody td { padding: 8px 8px; }
+}
+
+@media print {
+  body { background: #fff; color: #000; }
+  .page { padding: 20px; }
+  .layer, .principle, .conn-card, .sarah-box, .decision { border-color: #ccc; background: #f9f9f9; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- MASTHEAD -->
+  <div class="masthead">
+    <div class="masthead-eyebrow">Living Architecture Document · v1.0</div>
+    <h1>K-Tech <em>Electronics</em><br>& Hardware Store</h1>
+    <div class="masthead-sub">TECHNOLOGY STACK · SYSTEM ARCHITECTURE · AUTOMATION ROADMAP</div>
+    <div class="masthead-meta">
+      <div class="meta-item"><span class="meta-label">Document Date</span><span class="meta-value">April 2026</span></div>
+      <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">MVP — Week 1 Launch</span></div>
+      <div class="meta-item"><span class="meta-label">Classification</span><span class="meta-value">Internal · Founder + Investor</span></div>
+      <div class="meta-item"><span class="meta-label">Ecosystem</span><span class="meta-value">CloudOven Infrastructure</span></div>
+    </div>
+  </div>
+
+  <!-- PHILOSOPHY -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">00</span>
+      <h2 class="section-title">The <em>Premise</em></h2>
+    </div>
+
+    <p class="lead">Most hardware shops in Kenya run on WhatsApp messages, exercise books, and memory. K-Tech is not opening as a hardware shop. It is opening as a <strong>technology company that sells electronics</strong>. The difference is not cosmetic — it is structural.</p>
+
+    <p>The same infrastructure already powering CloudOven — Supabase, Vercel, Render, Twilio, and the Zovrix AI employees — can be leveraged for K-Tech at near-zero marginal cost. Sarah, who already closes sales and handles customer support for CloudOven, can be extended to work the K-Tech WhatsApp line.</p>
+
+    <p>The goal of this document is not to impress. It is to give the founder and the investor a clear, honest picture of what we are building, what it costs, what it unlocks, and in what order we do things.</p>
+
+    <div class="quote">
+      <p>"We do not mix. We move with longevity attitude and calm strategic approach."</p>
+      <div class="quote-attr">— Founder directive, April 2026</div>
+    </div>
+
+    <div class="principle-grid">
+      <div class="principle">
+        <div class="principle-icon">🏗</div>
+        <div class="principle-title">Separation of Concerns</div>
+        <div class="principle-text">K-Tech gets its own isolated Supabase project, its own Vercel deployment, its own Render service. CloudOven and K-Tech share infrastructure providers — not infrastructure itself.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">📐</div>
+        <div class="principle-title">MVP First, Scale Always</div>
+        <div class="principle-text">Week 1: the shop opens with a working POS and inventory system. Nothing more. Every additional feature is added only when the business operation demands it.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">🤖</div>
+        <div class="principle-title">Automate What Repeats</div>
+        <div class="principle-text">Every task a human does more than 3 times a day is a candidate for automation. Restock alerts, daily summaries, customer receipts, WhatsApp replies — zero human effort, zero cost.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">💸</div>
+        <div class="principle-title">Free Until It Hurts</div>
+        <div class="principle-text">We extract maximum value from every free tier before spending a shilling. When we pay, it is because the revenue justifies it — not because it was convenient.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- TECH STACK -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2 class="section-title">The <em>Stack</em></h2>
+    </div>
+
+    <p>The architecture has six layers. Each layer has a clear owner, a clear tool, and a clear cost. Nothing is speculative.</p>
+
+    <!-- Layer 1 -->
+    <div class="layer l-browser">
+      <div class="layer-header">
+        <span class="layer-badge lb-cyan">Layer 1</span>
+        <span class="layer-name">Volta OS — Shop Management App</span>
+        <span class="layer-badge lb-free">Free · Browser</span>
+      </div>
+      <div class="layer-desc">
+        The single-file HTML application (already built). Runs entirely in the browser — no server needed for core shop operations. Works offline. The admin's daily tool: POS, inventory, transactions, reports, restock planner, customer ledger.
+        In Phase 1, it connects to Supabase for cloud sync and becomes a proper PWA installable on any Android phone.
+      </div>
+      <div class="layer-items">
+        <span class="tag hot">POS</span><span class="tag hot">Inventory</span><span class="tag">Transactions</span>
+        <span class="tag">Reports</span><span class="tag">Restock Planner</span><span class="tag">Customer Ledger</span>
+        <span class="tag new">Groq AI (Ask + Insights)</span><span class="tag new">Daily Briefing</span>
+        <span class="tag">WhatsApp Receipts</span><span class="tag">Printable Reports</span><span class="tag new">Offline PWA</span>
+      </div>
+    </div>
+
+    <!-- Layer 2 -->
+    <div class="layer l-edge">
+      <div class="layer-header">
+        <span class="layer-badge lb-amber">Layer 2</span>
+        <span class="layer-name">Vercel — Frontend Hosting</span>
+        <span class="layer-badge lb-free">Free Tier · Hobby</span>
+      </div>
+      <div class="layer-desc">
+        K-Tech gets its own Vercel project (separate from CloudOven). Hosts the Volta OS app as a public URL and optionally a customer-facing product catalogue. Vercel's edge network means it loads fast everywhere in Kenya, including on mobile data. Custom domain e.g. <strong>app.ktechke.com</strong> when ready.
+      </div>
+      <div class="layer-items">
+        <span class="tag">ktech-os.vercel.app (now)</span>
+        <span class="tag new">app.ktechke.com (Phase 2)</span>
+        <span class="tag">Customer Catalogue</span>
+        <span class="tag">CI/CD via GitHub</span>
+      </div>
+    </div>
+
+    <!-- Layer 3 -->
+    <div class="layer l-backend">
+      <div class="layer-header">
+        <span class="layer-badge lb-blue">Layer 3</span>
+        <span class="layer-name">Render — Backend API</span>
+        <span class="layer-badge lb-free">Free Tier · Web Service</span>
+      </div>
+      <div class="layer-desc">
+        A lightweight Node.js / Express service — K-Tech's own instance, separate from CloudOven's backend. Handles: Twilio WhatsApp webhooks, M-Pesa Daraja callbacks, Groq API calls server-side (key stays server-side, never in the browser in production), and scheduled jobs (daily summary email, weekly backup trigger). Free tier on Render is sufficient for Phase 1 traffic.
+      </div>
+      <div class="layer-items">
+        <span class="tag">WhatsApp Webhook</span><span class="tag">M-Pesa Callback</span>
+        <span class="tag new">Groq Server-Side Proxy</span><span class="tag">Scheduled Jobs (node-cron)</span>
+        <span class="tag">Receipt Generator</span><span class="tag">Inventory API</span>
+      </div>
+    </div>
+
+    <!-- Layer 4 -->
+    <div class="layer l-db">
+      <div class="layer-header">
+        <span class="layer-badge lb-green">Layer 4</span>
+        <span class="layer-name">Supabase — Database + Auth + Realtime</span>
+        <span class="layer-badge lb-free">Free Tier · 500MB · 50k rows</span>
+      </div>
+      <div class="layer-desc">
+        K-Tech's own Supabase project (not CloudOven's). Stores all transactions, inventory, customers, sales, restock history. Supabase Realtime means if the owner is on the laptop and the staff is on the phone, both see live updates. Row-level security ensures staff can only write — not read financials. Free tier supports years of a single shop's data volume.
+      </div>
+      <div class="layer-items">
+        <span class="tag">transactions</span><span class="tag">inventory</span><span class="tag">customers</span>
+        <span class="tag">sales</span><span class="tag">restock_log</span><span class="tag">daily_snapshots</span>
+        <span class="tag new">Realtime sync</span><span class="tag new">Row Level Security</span>
+        <span class="tag">Auth (PIN / email)</span><span class="tag">Storage (receipts)</span>
+      </div>
+    </div>
+
+    <!-- Layer 5 -->
+    <div class="layer l-ai">
+      <div class="layer-header">
+        <span class="layer-badge lb-purple">Layer 5</span>
+        <span class="layer-name">Groq — AI Engine (Llama 3.3 70B)</span>
+        <span class="layer-badge lb-free">Free Tier · 14,400 req/day</span>
+      </div>
+      <div class="layer-desc">
+        Replaces Anthropic API for all AI features. Groq's free tier is extremely generous — 14,400 requests per day at zero cost. Llama 3.3 70B is strong enough for every financial analysis, restock recommendation, daily briefing, and conversational query the shop will generate. Key stored server-side on Render (not in browser) in production.
+      </div>
+      <div class="layer-items">
+        <span class="tag hot">Ask AI (conversational)</span><span class="tag hot">Daily Auto-Briefing</span>
+        <span class="tag">AI Insights</span><span class="tag">Smart Price Suggestions</span>
+        <span class="tag new">Auto Transaction Categorisation</span><span class="tag new">Restock Intelligence</span>
+        <span class="tag new">WhatsApp Bot Brain</span>
+      </div>
+    </div>
+
+    <!-- Layer 6 -->
+    <div class="layer l-comms">
+      <div class="layer-header">
+        <span class="layer-badge lb-red">Layer 6</span>
+        <span class="layer-name">Twilio + Zovrix — Communications</span>
+        <span class="layer-badge lb-strategic">Strategic · Shared Infra</span>
+      </div>
+      <div class="layer-desc">
+        Here is where K-Tech inherits power from CloudOven at zero additional cost. The same Twilio account already running Sarah for CloudOven can host a second WhatsApp number for K-Tech. Sarah's framework (Zovrix AI) can be configured with K-Tech's personality, inventory knowledge, and business rules. When a customer WhatsApps the shop: Sarah replies, checks stock, sends prices, takes orders, and hands off to a human only when needed. This is enterprise-grade automation at startup cost.
+      </div>
+      <div class="layer-items">
+        <span class="tag hot">WhatsApp Business (K-Tech number)</span>
+        <span class="tag hot">Sarah — AI Employee (extended)</span>
+        <span class="tag">Stock Query Bot</span><span class="tag">Order Inquiry</span>
+        <span class="tag">Price List on Demand</span><span class="tag new">M-Pesa Payment Confirm SMS</span>
+        <span class="tag">Low Stock SMS to Owner</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- SARAH EXTENSION -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2 class="section-title">Sarah — <em>Extended</em></h2>
+    </div>
+
+    <p>Sarah is already live and closing sales for CloudOven. Extending her to K-Tech is not a new project — it is a configuration. The Twilio infrastructure, the webhook architecture, the Groq brain, the conversation logic — all exist. K-Tech gets a version of Sarah configured for electronics retail. Call her the same or give her a K-Tech persona. The cost of this extension is essentially zero.</p>
+
+    <div class="sarah-box">
+      <div class="sarah-header">
+        <div class="sarah-avatar">🤖</div>
+        <div>
+          <div class="sarah-name">Sarah — K-Tech Instance</div>
+          <div class="sarah-role">AI Shop Assistant · Zovrix · Twilio WhatsApp</div>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--ink2);margin-bottom:0">A customer WhatsApps K-Tech Electronics. Sarah picks up. No human needed unless it escalates.</p>
+      <div class="sarah-abilities">
+        <div class="sarah-ab"><strong>Stock Query</strong>"Do you have MCB 32A?" → checks live Supabase → "Yes, KSh 250. 8 in stock."</div>
+        <div class="sarah-ab"><strong>Price List</strong>"What bulbs do you have?" → returns formatted list of available LED bulbs with prices.</div>
+        <div class="sarah-ab"><strong>Order / Reserve</strong>Customer says "keep 2 MCBs for me" → logs reservation in system, notifies owner.</div>
+        <div class="sarah-ab"><strong>Hours & Location</strong>Directions, opening hours, contact — zero human involvement.</div>
+        <div class="sarah-ab"><strong>Receipt Delivery</strong>After in-store sale, owner triggers WhatsApp receipt → Sarah delivers it to customer.</div>
+        <div class="sarah-ab"><strong>Handoff</strong>Complex queries or negotiation → "Let me connect you to the team" → notifies owner.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- AUTOMATION FEATURE LIST -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2 class="section-title">Automation <em>Matrix</em></h2>
+    </div>
+
+    <p>Every automation below is classified by who it serves, what phase it launches in, and its true cost. Nothing is padded. Nothing is aspirational without a delivery date.</p>
+
+    <table class="feat-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Serves</th>
+          <th>Phase</th>
+          <th>Cost</th>
+          <th>How</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="feat-name">POS with stock auto-deduction</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Browser JS → Supabase</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Groq-powered Ask AI</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Groq free tier (14k/day)</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Auto daily briefing on dashboard open</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Groq · 1 call/day</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Low stock detection + reorder alert</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Pure JS logic on inventory load</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">WhatsApp receipt link after sale</div></td>
+          <td><span class="pill-cust">Customer</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>wa.me deep link with pre-filled text</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Printable end-of-day report</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Browser print CSS</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Auto-categorise transaction by description</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Groq on description blur</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Smart sell-price suggestion when adding item</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Groq + shop margin history</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Credit sale / debt tracker</div></td>
+          <td><span class="pill-both">Admin + Customer</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Customer ledger in localStorage → Supabase</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Sales velocity — fast movers panel</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Aggregate sales data in JS</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Recurring expense reminders</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>localStorage scheduled check on app open</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Inventory CSV export / import</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-0">MVP</span></td>
+          <td class="cost-0">Free</td>
+          <td>Browser Blob download</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Cloud sync across devices (Supabase)</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-1">Phase 1</span></td>
+          <td class="cost-0">Free</td>
+          <td>Supabase free tier (500MB)</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Staff PIN login + role separation</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-1">Phase 1</span></td>
+          <td class="cost-0">Free</td>
+          <td>Supabase Auth + Row Level Security</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">PWA — install on Android phone</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-1">Phase 1</span></td>
+          <td class="cost-0">Free</td>
+          <td>Service Worker + manifest.json</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">WhatsApp AI Bot (Sarah — K-Tech)</div></td>
+          <td><span class="pill-cust">Customer</span></td>
+          <td><span class="phase-1">Phase 1</span></td>
+          <td class="cost-low">~$0 (Twilio sandbox)</td>
+          <td>Extend existing Zovrix infra</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Customer-facing stock catalogue (web)</div></td>
+          <td><span class="pill-cust">Customer</span></td>
+          <td><span class="phase-1">Phase 1</span></td>
+          <td class="cost-0">Free</td>
+          <td>Static Vercel page from Supabase data</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Camera barcode scanning → POS</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-1">Phase 1</span></td>
+          <td class="cost-0">Free</td>
+          <td>ZXing.js (browser barcode lib)</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">M-Pesa payment auto-confirmation</div></td>
+          <td><span class="pill-both">Admin + Customer</span></td>
+          <td><span class="phase-2">Phase 2</span></td>
+          <td class="cost-low">Daraja API (free to register)</td>
+          <td>Safaricom Daraja STK Push → Render webhook</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Low stock SMS to owner phone</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-2">Phase 2</span></td>
+          <td class="cost-low">Africa's Talking ~KSh 0.80/SMS</td>
+          <td>Render cron → AT API</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Supplier price comparison tool</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-2">Phase 2</span></td>
+          <td class="cost-0">Free</td>
+          <td>CSV import from supplier, compare vs current buy price</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Auto monthly P&L email to investor</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-2">Phase 2</span></td>
+          <td class="cost-0">Free</td>
+          <td>Render cron + Resend free (3k emails/mo)</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Customer loyalty / repeat tracker</div></td>
+          <td><span class="pill-cust">Customer</span></td>
+          <td><span class="phase-3">Phase 3</span></td>
+          <td class="cost-0">Free</td>
+          <td>Supabase customer table + visit count</td>
+        </tr>
+        <tr>
+          <td><div class="feat-name">Multi-branch support</div></td>
+          <td><span class="pill-admin">Admin</span></td>
+          <td><span class="phase-3">Phase 3</span></td>
+          <td class="cost-low">Supabase Pro if needed</td>
+          <td>Branch_id column on all tables + RLS</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="rule">
+
+  <!-- DATA FLOW -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2 class="section-title">How Data <em>Flows</em></h2>
+    </div>
+
+    <p>Understanding the data flow prevents future architectural mistakes. Every arrow below represents a real connection with a known cost and a known failure mode.</p>
+
+    <p><strong>Admin Sale Flow (POS)</strong></p>
+    <div class="flow">
+      <div class="flow-node"><div class="flow-label">Admin</div><div class="flow-name">Taps item in POS</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Browser</div><div class="flow-name">Volta OS calculates total</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Supabase</div><div class="flow-name">Logs sale, deducts stock</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">WhatsApp</div><div class="flow-name">Receipt link sent to customer</div></div>
+    </div>
+
+    <p><strong>Customer WhatsApp Flow (Sarah)</strong></p>
+    <div class="flow">
+      <div class="flow-node"><div class="flow-label">Customer</div><div class="flow-name">"Do you have MCB 16A?"</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Twilio</div><div class="flow-name">Receives WhatsApp msg</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Render API</div><div class="flow-name">Webhook → query Supabase</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Groq AI</div><div class="flow-name">Sarah composes reply</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Customer</div><div class="flow-name">"Yes, KSh 250. 8 in stock."</div></div>
+    </div>
+
+    <p><strong>Auto Daily Briefing Flow</strong></p>
+    <div class="flow">
+      <div class="flow-node"><div class="flow-label">Admin</div><div class="flow-name">Opens dashboard</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Browser JS</div><div class="flow-name">Compiles yesterday's data</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Groq API</div><div class="flow-name">Generates 3-line briefing</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node"><div class="flow-label">Dashboard</div><div class="flow-name">Displays at top of screen</div></div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- INFRASTRUCTURE MAP -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2 class="section-title">Infrastructure <em>Map</em></h2>
+    </div>
+
+    <p>This shows how K-Tech and CloudOven share providers without mixing systems.</p>
+
+    <div class="conn-grid">
+      <div class="conn-card">
+        <div class="conn-from">Supabase Account</div>
+        <div class="conn-name">cloudoven-db <span class="arrow">≠</span> ktech-db</div>
+        <div class="conn-detail">Two separate projects on the same Supabase account.<br>Completely isolated databases, auth systems, RLS rules.<br>No data crosses between them. Ever.</div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-from">Vercel Account</div>
+        <div class="conn-name">cloudoven.vercel.app <span class="arrow">≠</span> ktech-os.vercel.app</div>
+        <div class="conn-detail">Two separate Vercel deployments, two GitHub repos.<br>Same account, same billing, zero interference.<br>Each has own env variables and build settings.</div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-from">Render Account</div>
+        <div class="conn-name">cloudoven-api <span class="arrow">≠</span> ktech-api</div>
+        <div class="conn-detail">Two separate Web Services on Render.<br>K-Tech backend handles: WhatsApp webhooks, Daraja callbacks, Groq proxy, cron jobs.<br>Free tier: 750 hrs/month each.</div>
+      </div>
+      <div class="conn-card">
+        <div class="conn-from">Twilio Account</div>
+        <div class="conn-name">CloudOven number <span class="arrow">+</span> K-Tech number</div>
+        <div class="conn-detail">Same Twilio account, different WhatsApp numbers.<br>Each number has its own webhook URL (pointing to respective Render services).<br>Sarah's brain (Zovrix) is configured per-instance.</div>
+      </div>
+    </div>
+
+    <div class="decision">
+      <div class="decision-label">⚡ Key Decision</div>
+      <p>The Groq API key lives on the Render backend — not in the browser. In the MVP (offline HTML file), the key is in the browser temporarily. The moment Supabase + Render are connected, the key moves server-side. This is non-negotiable for production security.</p>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ROADMAP -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2 class="section-title">The <em>Roadmap</em></h2>
+    </div>
+
+    <div class="roadmap">
+      <div class="phase p0">
+        <div class="phase-label phase-0">Phase 0 — MVP · This Week</div>
+        <div class="phase-title">Shop Opens. System Works.</div>
+        <div class="phase-items">
+          ✓ Volta OS HTML file — POS, Inventory, Transactions, Reports<br>
+          ✓ Switch AI to Groq (Llama 3.3 70B — free)<br>
+          ✓ Auto daily briefing on dashboard open<br>
+          ✓ Low stock alerts + restock planner<br>
+          ✓ WhatsApp receipt link after sale<br>
+          ✓ End-of-day printable report<br>
+          ✓ Auto transaction categorisation (Groq)<br>
+          ✓ Smart price suggestion when adding items (Groq)<br>
+          ✓ Sales velocity / fast movers dashboard panel<br>
+          ✓ Debt / credit sale tracker<br>
+          ✓ Recurring expense reminders<br>
+          ✓ 180+ electronics items pre-loaded<br>
+          ✓ Data backed up via JSON export
+        </div>
+      </div>
+
+      <div class="phase p1">
+        <div class="phase-label phase-1">Phase 1 — Week 2–4 · After First Stock Purchase</div>
+        <div class="phase-title">Connected. Multi-Device. Customer-Facing.</div>
+        <div class="phase-items">
+          → Supabase integration (cloud sync, offline fallback)<br>
+          → Staff PIN login + role-based access<br>
+          → PWA — install on Android phone, works offline<br>
+          → Sarah (WhatsApp bot) — K-Tech instance live<br>
+          → Customer-facing catalogue (Vercel static page)<br>
+          → Camera barcode scanning into POS<br>
+          → Vercel deployment — accessible anywhere<br>
+          → Groq API key moves server-side (Render)<br>
+          → Auto-generated customer WhatsApp receipts (via Sarah)
+        </div>
+      </div>
+
+      <div class="phase p2">
+        <div class="phase-label phase-2">Phase 2 — Month 2–3 · Revenue Generating</div>
+        <div class="phase-title">Automated Operations. Payment Confirmed.</div>
+        <div class="phase-items">
+          → M-Pesa Daraja STK Push confirmation<br>
+          → Auto monthly P&L email to investor (Resend free)<br>
+          → Low stock SMS to owner (Africa's Talking)<br>
+          → Supplier price CSV import + comparison tool<br>
+          → Customer loyalty tracking<br>
+          → Sales forecast (Groq + historical data)<br>
+          → Custom domain — ktechke.com
+        </div>
+      </div>
+
+      <div class="phase p3">
+        <div class="phase-label phase-3">Phase 3 — Month 4+ · Scale</div>
+        <div class="phase-title">The Industrial Mold. Broken.</div>
+        <div class="phase-items">
+          → Second branch support (branch_id on all tables)<br>
+          → Investor dashboard (read-only Supabase view)<br>
+          → Automated reorder to supplier (WhatsApp to supplier contact)<br>
+          → Customer pre-order and reservation system<br>
+          → Annual tax-ready P&L export (KRA format)<br>
+          → Franchise template — license Volta OS to other shops
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- COST REALITY -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2 class="section-title">True <em>Cost</em> Table</h2>
+    </div>
+
+    <p>This is the honest cost of the entire stack — Phase 0 through Phase 2 — presented to the investor without flattery.</p>
+
+    <table class="cost-table">
+      <thead>
+        <tr><th>Service</th><th>Purpose</th><th>Free Limit</th><th>Monthly Cost Now</th><th>Paid Trigger</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Supabase</td><td>Database + Auth + Realtime</td><td>500MB · 50k rows</td><td class="cost-0">KSh 0</td><td>~10,000 customers or 500MB data</td></tr>
+        <tr><td>Vercel</td><td>Frontend hosting + CDN</td><td>100GB bandwidth</td><td class="cost-0">KSh 0</td><td>Enterprise traffic</td></tr>
+        <tr><td>Render</td><td>Backend API + webhooks</td><td>750 hrs/month</td><td class="cost-0">KSh 0</td><td>Always-on service needed</td></tr>
+        <tr><td>Groq</td><td>AI engine (Llama 3.3 70B)</td><td>14,400 req/day</td><td class="cost-0">KSh 0</td><td>~400 AI calls/day sustained</td></tr>
+        <tr><td>Twilio (K-Tech number)</td><td>WhatsApp business number</td><td>Sandbox free</td><td class="cost-low">~$5–15/mo when live</td><td>Going live on WhatsApp Business</td></tr>
+        <tr><td>Africa's Talking</td><td>SMS alerts to owner</td><td>Free sandbox</td><td class="cost-low">~KSh 80/mo (100 SMS)</td><td>When owner wants SMS alerts</td></tr>
+        <tr><td>Safaricom Daraja</td><td>M-Pesa confirmation</td><td>Free to register</td><td class="cost-0">KSh 0</td><td>Per-transaction (negligible)</td></tr>
+        <tr><td>Resend</td><td>Monthly P&L email</td><td>3,000 emails/mo</td><td class="cost-0">KSh 0</td><td>Never (1 email/month)</td></tr>
+        <tr><td>GitHub</td><td>Code + CI/CD</td><td>Unlimited public</td><td class="cost-0">KSh 0</td><td>Private repos with teams</td></tr>
+        <tr><td>Custom domain (ktechke.com)</td><td>Professional URL</td><td>—</td><td class="cost-low">~KSh 1,500/yr</td><td>Phase 2 — optional</td></tr>
+      </tbody>
+    </table>
+
+    <div class="decision">
+      <div class="decision-label">📊 Investor Summary</div>
+      <p><strong>Phase 0 (MVP, this week):</strong> KSh 0. Zero. The shop opens with a full technology stack at no monthly cost.</p>
+      <p><strong>Phase 1 (Weeks 2–4):</strong> KSh 0, unless WhatsApp bot goes live on a paid Twilio number (~$5–15/mo = KSh 650–1,950/mo).</p>
+      <p><strong>Phase 2 (Month 2–3):</strong> Maximum KSh 2,500–4,000/month for the entire stack including SMS, WhatsApp, and domain. This is less than one day's electricity bill for most small businesses.</p>
+      <p>For context: if Sarah handles 100 customer inquiries per month that would have required human time, the ROI is immediate. If she converts 10 of those to sales of even KSh 500 each, the system has paid for itself 10× over.</p>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- WHAT WE BUILD NEXT -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2 class="section-title">What We Build <em>Next</em></h2>
+    </div>
+
+    <p class="lead">The MVP Volta OS file needs these changes before the shop opens next week:</p>
+
+    <div class="principle-grid">
+      <div class="principle">
+        <div class="principle-icon">🔄</div>
+        <div class="principle-title">1. Switch to Groq</div>
+        <div class="principle-text">Replace all Anthropic API calls with Groq's OpenAI-compatible endpoint. Model: llama-3.3-70b-versatile. Same intelligence, 14,400 free calls/day.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">🌅</div>
+        <div class="principle-title">2. Auto Daily Briefing</div>
+        <div class="principle-text">On dashboard load, if no briefing today: pull yesterday's data, send to Groq, render a 3-line morning brief. Cached in localStorage so it only fires once per day.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">📈</div>
+        <div class="principle-title">3. Fast Movers Panel</div>
+        <div class="principle-text">Dashboard shows top 5 selling items (by units and by revenue), bottom 5 dead stock items. Updates every time the dashboard loads.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">💬</div>
+        <div class="principle-title">4. WhatsApp Receipt</div>
+        <div class="principle-text">After POS checkout, receipt modal has a "Send via WhatsApp" button. Opens wa.me with pre-filled receipt text. Customer receives on their phone instantly.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">🏷</div>
+        <div class="principle-title">5. Smart Pricing</div>
+        <div class="principle-text">In Add Item form: type buying price, Groq suggests a selling price based on your shop's average margin. One click to accept.</div>
+      </div>
+      <div class="principle">
+        <div class="principle-icon">🖨</div>
+        <div class="principle-title">6. End-of-Day Report</div>
+        <div class="principle-text">One button in dashboard: generates a formatted daily closing summary — sales, items sold, expenses, cash to take to bank. Print-ready.</div>
+      </div>
+    </div>
+
+    <p>These six additions complete the MVP. Everything else is Phase 1 and beyond. The rule is: <strong>the shop opens first, the tech grows with it.</strong></p>
+  </div>
+
+  <hr class="rule">
+
+  <!-- CLOSING -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <h2 class="section-title">Final <em>Note</em></h2>
+    </div>
+
+    <p class="lead">K-Tech is not just an electronics shop. It is the first node in a network — a proof of concept that any physical retail business in Kenya can be run with the same sophistication as a funded tech startup, at almost zero cost, from day one.</p>
+
+    <p>The remodeling finishes today. The stock purchase is next week. The technology is ready. The only thing left is to begin.</p>
+
+    <p>This document should be reviewed with the investor not as a pitch, but as a shared understanding. Every item here is buildable. Every cost here is real. Every phase here has a clear trigger — a business event that justifies the next investment of time or money.</p>
+
+    <div class="quote">
+      <p>Break the industrial mold — not by moving fast and breaking things, but by building things that do not break.</p>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-logo">⚡ K-TECH ELECTRONICS</div>
+    <div class="footer-meta">
+      Tech Architecture v1.0 · April 2026<br>
+      Confidential — Founder + Investor Use<br>
+      Built on CloudOven Infrastructure
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
