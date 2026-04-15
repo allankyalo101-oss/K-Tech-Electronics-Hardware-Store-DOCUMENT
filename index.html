@@ -2202,14 +2202,14 @@ Answer questions using the actual numbers. Be direct, specific, practical. Alway
       ?[{role:'user',content:`${sys}\n\nOWNER QUESTION: ${q}`}]
       :[{role:'user',content:`${sys}\n\nFirst question: ${chatHist[0].content}`},...chatHist.slice(1)];
     const res = await fetch("https://kisha-tech-backend.onrender.com/ask", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    message: q,
-    context: ctx   // ← FULL SHOP CONTEXT
-  })
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: q,
+        context: ctx   // ← FULL SHOP CONTEXT
+      })
 });
 
 const data = await res.json();
