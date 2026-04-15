@@ -2201,7 +2201,22 @@ Answer questions using the actual numbers. Be direct, specific, practical. Alway
     const msgs=chatHist.length===1
       ?[{role:'user',content:`${sys}\n\nOWNER QUESTION: ${q}`}]
       :[{role:'user',content:`${sys}\n\nFirst question: ${chatHist[0].content}`},...chatHist.slice(1)];
-    const ans = await groq(msgs, false, 700);
+    const res = await fetch("https://kisha-tech-backend.onrender.com/ask", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    message: q,
+    context: ctx   // ← FULL SHOP CONTEXT
+  })
+});
+
+const data = await res.json();
+
+if (!res.ok) throw new Error(data.error || "Backend error");
+
+const ans = data.reply;
     if(!ans) throw new Error('No response from Groq. Check your API key in Settings.');
     updateMsg(thinkId,ans);
     chatHist.push({role:'assistant',content:ans});
