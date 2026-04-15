@@ -1829,24 +1829,27 @@ const MODEL_SMART = 'llama-3.3-70b-versatile';   // Ask AI, Insights
 const MODEL_FAST  = 'llama3-8b-8192';             // Briefing, Smart Price, Auto-Cat
 
 async function groq(messages, fast = false, maxTokens = 600) {
-  const key = getKey();
-  if (!key) return null;
   try {
-    const res = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    const res = await fetch("https://kisha-tech-backend.onrender.com/ask", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
-        model: fast ? MODEL_FAST : MODEL_SMART,
-        max_tokens: maxTokens,
-        temperature: 0.3,
-        messages
+        message: messages.map(m => m.content).join("\n\n")
       })
     });
+
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
-    return data.choices?.[0]?.message?.content || '';
+
+    if (!res.ok) {
+      throw new Error(data.error || "Backend error");
+    }
+
+    return data.reply;
+
   } catch (e) {
-    console.error('Groq error:', e.message);
+    console.error("Backend error:", e.message);
     return null;
   }
 }
