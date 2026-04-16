@@ -679,7 +679,8 @@ tbody tr:hover td{background:#0F1520}
 <section id="sec-ask" class="section">
   <div class="eyebrow">Conversational Intelligence</div>
   <h2 class="page-title">Ask Your Shop</h2>
-  <div id="ask-nokey" style="display:none" class="alert alert-warn">No Groq API key found. Go to <strong style="cursor:pointer;text-decoration:underline" onclick="goto('settings')">Settings → Groq API Key</strong> to add yours. Free at console.groq.com.</div>
+  <div id="ask-nokey" style="display:none" class="alert alert-err">AI backend unreachable. Check Settings → AI Backend or try again in a moment.</div>
+  <div id="ask-online" style="display:none" class="alert alert-ok">✓ Connected to AI backend.</div>
   <div class="chat-pills" id="ask-pills">
     <button class="pill" onclick="sendPill(this)">What is my net profit?</button>
     <button class="pill" onclick="sendPill(this)">Which items have the highest margin?</button>
@@ -819,12 +820,19 @@ tbody tr:hover td{background:#0F1520}
   </div>
 
   <div class="set-sec">
-    <h3>Groq API Key — AI Engine (Free)</h3>
-    <div><label>Groq API Key</label><input type="password" id="set-apikey" placeholder="gsk_..."></div>
-    <p style="font-family:var(--mono);font-size:9px;color:var(--text3);line-height:1.8;margin:10px 0">
-      Powers Ask AI, Insights, Daily Briefing, Smart Pricing, and Auto-Categorisation. Free tier: 14,400 requests/day. Get your key at <strong style="color:var(--cyan)">console.groq.com</strong> — no credit card needed.
+    <h3>AI Backend — Render Connection</h3>
+    <p style="font-family:var(--mono);font-size:9px;color:var(--text3);line-height:1.8;margin-bottom:12px">
+      AI runs on <strong style="color:var(--cyan)">kisha-tech-backend.onrender.com</strong>. The Groq key lives server-side — no key needed here. If you self-host the backend, enter its URL below.
     </p>
-    <button class="btn btn-cyan" onclick="saveApiKey()">Save Groq Key</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:240px">
+        <label>Backend URL (leave blank for default)</label>
+        <input type="text" id="set-backend-url" placeholder="https://kisha-tech-backend.onrender.com">
+      </div>
+      <button class="btn btn-cyan" onclick="saveBackendUrl()">Save</button>
+      <button class="btn btn-ghost" onclick="testBackend()">Test Connection</button>
+    </div>
+    <div id="backend-status" style="font-family:var(--mono);font-size:10px;margin-top:8px"></div>
   </div>
 
   <div class="set-sec">
@@ -1214,7 +1222,6 @@ function defaultState() {
 }
 let S = (() => { try { const r=localStorage.getItem(STORE); return r?JSON.parse(r):defaultState(); } catch { return defaultState(); } })();
 function save() { localStorage.setItem(STORE, JSON.stringify(S)); }
-function getKey() { return localStorage.getItem(APIKEY_STORE)||''; }
 
 // ════════════════════════════════════════════════════════
 // HELPERS
@@ -1824,35 +1831,54 @@ function deleteCust(id){if(!confirm('Delete customer?'))return;S.customers=S.cus
 // GROQ AI ENGINE
 // Two models: 70b for deep thinking, 8b for quick tasks
 // ════════════════════════════════════════════════════════
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL_SMART = 'llama-3.3-70b-versatile';   // Ask AI, Insights
-const MODEL_FAST  = 'llama3-8b-8192';             // Briefing, Smart Price, Auto-Cat
+// ── BACKEND CONFIG ───────────────────────────────────────
+// All AI calls route through the Render backend.
+// Groq API key lives server-side — never in the browser.
+const BACKEND_URL = 'https://kisha-tech-backend.onrender.com';
 
+function getBackendUrl() {
+  return localStorage.getItem('volta_backend_url_v1') || BACKEND_URL;
+}
+
+// groq() — routes to Render /ask, sends full context + history
+// Drop-in replacement — rest of the app is unchanged.
 async function groq(messages, fast = false, maxTokens = 600) {
   try {
-    const res = await fetch("https://kisha-tech-backend.onrender.com/ask", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        message: messages.map(m => m.content).join("\n\n")
-      })
+    const systemMsg   = messages.find(m => m.role === 'system');
+    const nonSystem   = messages.filter(m => m.role !== 'system');
+    const lastUser    = nonSystem.filter(m => m.role === 'user').pop();
+    const convHistory = nonSystem.slice(0, -1)
+      .map(m => ({ role: m.role, content: String(m.content).slice(0, 800) }));
+
+    const payload = {
+      message: lastUser?.content || '',
+      context: systemMsg?.content || '',
+      history: convHistory,
+    };
+
+    const res = await fetch(`${getBackendUrl()}/ask`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
     });
 
-    const data = await res.json();
-
     if (!res.ok) {
-      throw new Error(data.error || "Backend error");
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Backend HTTP ${res.status}`);
     }
 
-    return data.reply;
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.reply || '';
 
   } catch (e) {
-    console.error("Backend error:", e.message);
+    console.error('[AI] Backend call failed:', e.message);
     return null;
   }
 }
+
+// getKey() — kept so existing checks compile, always returns truthy
+function getKey() { return 'server-side'; }
 
 // ════════════════════════════════════════════════════════
 // DAILY BRIEFING — fires once per day, cached in localStorage
@@ -2144,7 +2170,16 @@ function printEndOfDay() {
 // ════════════════════════════════════════════════════════
 let chatHist=[];let askBusy=false;
 
-function initAsk(){document.getElementById('ask-nokey').style.display=getKey()?'none':'block';}
+function initAsk(){
+  const nokey = document.getElementById('ask-nokey');
+  const online = document.getElementById('ask-online');
+  if (nokey) nokey.style.display = 'none';
+  // Ping backend silently — show status without blocking
+  fetch(`${getBackendUrl()}/health`)
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(() => { if (online) online.style.display = 'block'; })
+    .catch(() => { if (nokey) nokey.style.display = 'block'; });
+}
 
 function buildCtx() {
   const s=stats(),m=S.meta;
@@ -2273,9 +2308,11 @@ function copyIns(){if(window._lastIns)navigator.clipboard.writeText(window._last
 // ════════════════════════════════════════════════════════
 // SETTINGS
 // ════════════════════════════════════════════════════════
-function loadSettings(){const m=S.meta;document.getElementById('set-name').value=m.shopName||'';document.getElementById('set-capital').value=m.capital||200000;document.getElementById('set-startdate').value=m.startDate||today();document.getElementById('set-location').value=m.location||'';document.getElementById('set-owner').value=m.owner||'';document.getElementById('set-reorder').value=m.reorderDefault||5;document.getElementById('set-apikey').value=getKey()?'•'.repeat(24):'';loadSupabaseSettings();}
+function loadSettings(){const m=S.meta;document.getElementById('set-name').value=m.shopName||'';document.getElementById('set-capital').value=m.capital||200000;document.getElementById('set-startdate').value=m.startDate||today();document.getElementById('set-location').value=m.location||'';document.getElementById('set-owner').value=m.owner||'';document.getElementById('set-reorder').value=m.reorderDefault||5;const urlEl=document.getElementById('set-backend-url');if(urlEl)urlEl.value=localStorage.getItem('volta_backend_url_v1')||'';loadSupabaseSettings();}
 function saveSettings(){S.meta={...S.meta,shopName:document.getElementById('set-name').value.trim()||'My Electronics Shop',capital:parseFloat(document.getElementById('set-capital').value)||200000,startDate:document.getElementById('set-startdate').value||today(),location:document.getElementById('set-location').value.trim(),owner:document.getElementById('set-owner').value.trim(),reorderDefault:parseInt(document.getElementById('set-reorder').value)||5};save();queuePush('meta',S.meta);document.getElementById('navTitle').textContent=S.meta.shopName.split(' ').slice(0,2).join(' ').toUpperCase();showAlert('set-alert','✓ Settings saved.','ok');}
-function saveApiKey(){const k=document.getElementById('set-apikey').value.trim();if(k&&!k.startsWith('•')){localStorage.setItem(APIKEY_STORE,k);showAlert('set-alert','✓ API key saved. AI features unlocked.','ok');}else{showAlert('set-alert','Please paste a valid API key.','warn');}}
+function saveBackendUrl(){const u=document.getElementById('set-backend-url').value.trim();if(u)localStorage.setItem('volta_backend_url_v1',u);else localStorage.removeItem('volta_backend_url_v1');showAlert('set-alert','✓ Backend URL saved.','ok');testBackend();}
+async function testBackend(){const el=document.getElementById('backend-status');if(el)el.innerHTML='<span style="color:var(--amber)">⟳ Testing...</span>';try{const r=await fetch(`${getBackendUrl()}/health`);const d=await r.json();if(r.ok&&d.status==='ok'){if(el)el.innerHTML='<span style="color:var(--green)">✓ Backend connected: '+getBackendUrl()+'</span>';}else throw new Error('Bad response');}catch(e){if(el)el.innerHTML='<span style="color:var(--red)">✕ Unreachable. Check Render deploy status.</span>';}}
+function saveApiKey(){/* key lives server-side — this is a no-op kept for compatibility */showAlert('set-alert','Groq key is managed server-side. No browser key needed.','info');}
 function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`volta-backup-${today()}.json`;a.click();}
 function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const imp=JSON.parse(ev.target.result);if(!imp.transactions)throw new Error('Not a valid Volta OS backup.');if(!confirm(`Import ${imp.transactions.length} transactions + ${(imp.inventory||[]).length} inventory items?`))return;S={...defaultState(),...imp};save();showAlert('set-alert',`✓ Imported ${S.transactions.length} transactions, ${S.inventory.length} items.`,'ok');}catch(err){showAlert('set-alert','Import failed: '+err.message,'err');}};r.readAsText(f);}
 function resetData(){if(!confirm('RESET ALL DATA? Cannot be undone.'))return;if(!confirm('Final confirmation — delete everything?'))return;S=defaultState();save();showAlert('set-alert','Data reset. Start fresh.','warn');}
