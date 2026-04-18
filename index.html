@@ -506,37 +506,65 @@ tbody tr:hover td{background:#0F1520}
   </div>
 </section>
 
-<!-- ══════════════════ INVENTORY ══════════════════ -->
+<!-- ══════════════════ INVENTORY ENGINE ══════════════════ -->
 <section id="sec-inventory" class="section">
-  <div class="eyebrow">Stock Management</div>
-  <div class="flex-between" style="margin-bottom:16px">
+  <div class="eyebrow">Stock Management Engine</div>
+  <div class="flex-between" style="margin-bottom:12px">
     <h2 class="page-title" style="margin:0">Inventory</h2>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-cyan btn-sm" onclick="openAddItemModal()">＋ Add Item</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportInventoryCSV()">↓ Export CSV</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-cyan btn-sm" onclick="openQuickEntry()" title="Keyboard-first rapid stock entry">⚡ Quick Entry</button>
+      <button class="btn btn-ghost btn-sm" onclick="openBulkPaste()" title="Paste from Excel/Sheets">⊞ Bulk Paste</button>
+      <button class="btn btn-ghost btn-sm" onclick="openStocktake()" title="Rapid qty-only update mode">📋 Stocktake</button>
+      <button class="btn btn-ghost btn-sm" onclick="openAddItemModal()">＋ Single Item</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportInventoryCSV()">↓ CSV</button>
     </div>
   </div>
+
+  <!-- Stats strip -->
   <div id="inv-stats" class="stat-grid" style="margin-bottom:12px"></div>
-  <div class="filter-bar">
-    <input type="text" id="inv-search" placeholder="🔍 Search..." oninput="renderInventory()" style="flex:1;min-width:140px">
-    <select id="inv-cat" onchange="renderInventory()">
+
+  <!-- Filter + batch toolbar -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+    <input type="text" id="inv-search" placeholder="🔍 Search name or category..." oninput="renderInventory()" style="flex:1;min-width:160px;padding:7px 10px;font-size:11px">
+    <select id="inv-cat" onchange="renderInventory()" style="width:auto;padding:7px 10px;font-size:11px">
       <option value="">All Categories</option>
     </select>
-    <select id="inv-sort" onchange="renderInventory()">
-      <option value="">Sort by...</option>
+    <select id="inv-sort" onchange="renderInventory()" style="width:auto;padding:7px 10px;font-size:11px">
+      <option value="">Sort...</option>
       <option value="name">Name A-Z</option>
-      <option value="stock_asc">Stock Low→High</option>
-      <option value="stock_desc">Stock High→Low</option>
+      <option value="stock_asc">Qty Low→High</option>
+      <option value="stock_desc">Qty High→Low</option>
       <option value="margin_desc">Margin High→Low</option>
       <option value="value_desc">Value High→Low</option>
     </select>
     <button class="btn btn-ghost btn-sm" id="inv-low-btn" onclick="toggleLowStock()">🔴 Low Stock</button>
   </div>
+
+  <!-- Batch action bar — shown when items are selected -->
+  <div id="inv-batch-bar" style="display:none;background:var(--cyan-dim);border:1px solid var(--cyan);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+    <span id="inv-batch-count" style="font-family:var(--mono);font-size:10px;color:var(--cyan)">0 selected</span>
+    <select id="inv-batch-cat" style="width:auto;padding:5px 8px;font-size:10px">
+      <option value="">Change category...</option>
+      <option>Circuit Protection</option><option>Switches & Sockets</option>
+      <option>Lighting</option><option>Cables & Conduits</option>
+      <option>Heating Elements</option><option>Extensions & Plugs</option>
+      <option>Tools</option><option>Electronics & AV</option>
+      <option>Fixings & Adhesives</option><option>Locks & Security</option><option>Accessories</option>
+    </select>
+    <button class="btn btn-cyan btn-xs" onclick="batchSetCategory()">Apply Category</button>
+    <button class="btn btn-ghost btn-xs" onclick="batchSetZeroQty()">Set Qty 0</button>
+    <button class="btn btn-danger btn-xs" onclick="batchDelete()">Delete Selected</button>
+    <button class="btn btn-ghost btn-xs" onclick="clearBatchSelection()">✕ Cancel</button>
+  </div>
+
+  <!-- Main table -->
   <div class="card" style="padding:0;overflow:hidden">
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Item Name</th><th>Category</th><th>Buy</th><th>Sell</th><th>Margin</th><th>Qty</th><th>Stock Value</th><th>Status</th><th></th>
+          <th style="width:30px"><input type="checkbox" id="inv-select-all" onchange="toggleSelectAll(this)" style="accentColor:var(--cyan)"></th>
+          <th>Item Name</th><th>Category</th><th>Buy</th><th>Sell</th>
+          <th>Margin</th><th>Qty</th><th>Value</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="inv-tbody"></tbody>
       </table>
@@ -940,6 +968,169 @@ tbody tr:hover td{background:#0F1520}
   </div>
 </div>
 
+<!-- ══ QUICK ENTRY MODAL — keyboard-first rapid stock logging ══ -->
+<div id="modal-quickentry" class="modal-bg">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>⚡ Quick Entry Mode</span>
+      <span id="qe-counter" style="color:var(--text3);font-size:9px">0 added this session</span>
+    </div>
+    <p style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:16px;line-height:1.8">
+      Tab through fields. Press Enter or ⚡ to save and start next item. Category auto-fills from item name.
+    </p>
+    <div id="qe-alert" style="min-height:16px;margin-bottom:8px"></div>
+    <div class="form-grid">
+      <div class="full">
+        <label>Item Name <span style="color:var(--text4)">(Tab→)</span></label>
+        <input type="text" id="qe-name" placeholder="e.g. MCB 16A ANDELI" autocomplete="off"
+          oninput="qeAutoCategory()" onkeydown="qeKeydown(event,'qe-cat')">
+      </div>
+      <div>
+        <label>Category <span id="qe-cat-hint" style="color:var(--cyan);font-size:8px;display:none">⚡ auto-set</span></label>
+        <select id="qe-cat" onkeydown="qeKeydown(event,'qe-unit')">
+          <option value="Circuit Protection">Circuit Protection</option>
+          <option value="Switches & Sockets">Switches & Sockets</option>
+          <option value="Lighting">Lighting</option>
+          <option value="Cables & Conduits">Cables & Conduits</option>
+          <option value="Heating Elements">Heating Elements</option>
+          <option value="Extensions & Plugs">Extensions & Plugs</option>
+          <option value="Tools">Tools</option>
+          <option value="Electronics & AV">Electronics & AV</option>
+          <option value="Fixings & Adhesives">Fixings & Adhesives</option>
+          <option value="Locks & Security">Locks & Security</option>
+          <option value="Accessories">Accessories</option>
+        </select>
+      </div>
+      <div>
+        <label>Unit</label>
+        <select id="qe-unit" onkeydown="qeKeydown(event,'qe-buy')">
+          <option>PIECE</option><option>PKT</option><option>PSC</option>
+          <option>METRES</option><option>PAIR</option><option>SET</option><option>ROLL</option>
+        </select>
+      </div>
+      <div>
+        <label>Buying Price (KSh)</label>
+        <input type="number" id="qe-buy" placeholder="0" min="0"
+          onblur="qeSuggestSell()" onkeydown="qeKeydown(event,'qe-sell')">
+      </div>
+      <div>
+        <label>Selling Price (KSh) <span id="qe-sell-hint" style="color:var(--cyan);font-size:8px;display:none;cursor:pointer" onclick="qeAcceptSell()">⚡ Accept</span></label>
+        <input type="number" id="qe-sell" placeholder="0" min="0"
+          onkeydown="qeKeydown(event,'qe-qty')">
+        <div id="qe-sell-suggest" style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:3px;min-height:12px"></div>
+      </div>
+      <div>
+        <label>Quantity in Stock</label>
+        <input type="number" id="qe-qty" placeholder="0" min="0"
+          onkeydown="qeKeydown(event,'qe-reorder')">
+      </div>
+      <div>
+        <label>Reorder At</label>
+        <input type="number" id="qe-reorder" placeholder="5" min="0"
+          onkeydown="qeEnterSave(event)">
+      </div>
+    </div>
+
+    <!-- Margin preview -->
+    <div id="qe-margin-preview" style="display:none;margin-top:12px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px">
+        <span style="color:var(--text3)">Gross Margin</span>
+        <span id="qe-margin-val" style="color:var(--green)">0%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;margin-top:4px">
+        <span style="color:var(--text3)">Profit / unit</span>
+        <span id="qe-profit-val" style="color:var(--cyan)">KSh 0</span>
+      </div>
+    </div>
+
+    <!-- Recently added this session -->
+    <div id="qe-recent" style="margin-top:14px;max-height:140px;overflow-y:auto"></div>
+
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-quickentry')">Done (close)</button>
+      <button class="btn btn-ghost btn-sm" onclick="qeClearForm()">Clear ↺</button>
+      <button class="btn btn-cyan" onclick="qeSaveAndNext()" id="qe-save-btn">⚡ Save + Next Item (Enter)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BULK PASTE MODAL — paste from Excel/Sheets ══ -->
+<div id="modal-bulkpaste" class="modal-bg">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title">⊞ Bulk Paste from Spreadsheet</div>
+    <p style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:12px;line-height:1.8">
+      Copy cells from Excel or Google Sheets and paste below.<br>
+      Expected columns (in order): <strong style="color:var(--cyan)">Name · Buy Price · Sell Price · Qty · Unit</strong><br>
+      Unit and Buy Price are optional — defaults to PIECE and 0.
+    </p>
+    <div id="bp-alert" style="min-height:16px;margin-bottom:8px"></div>
+
+    <!-- Default category for bulk import -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <label style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px">DEFAULT CATEGORY:</label>
+      <select id="bp-default-cat" style="width:auto;padding:6px 10px;font-size:11px">
+        <option value="">Auto-detect from name</option>
+        <option>Circuit Protection</option><option>Switches & Sockets</option>
+        <option>Lighting</option><option>Cables & Conduits</option>
+        <option>Heating Elements</option><option>Extensions & Plugs</option>
+        <option>Tools</option><option>Electronics & AV</option>
+        <option>Fixings & Adhesives</option><option>Locks & Security</option>
+        <option>Accessories</option>
+      </select>
+      <label style="font-family:var(--mono);font-size:9px;color:var(--text3)">
+        <input type="checkbox" id="bp-skip-dupes" checked style="accentColor:var(--cyan)"> Skip duplicates
+      </label>
+    </div>
+
+    <textarea id="bp-paste-area"
+      placeholder="Paste your spreadsheet data here...&#10;&#10;Example:&#10;MCB 16A ANDELI&#9;150&#9;250&#9;10&#9;PIECE&#10;LED TUBE 4FT&#9;150&#9;250&#9;25&#9;PCS&#10;INSULATION TAPE BIG&#9;80&#9;100&#9;20&#9;PIECES"
+      style="width:100%;height:200px;background:#0A0D14;border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;padding:12px;outline:none;resize:vertical;line-height:1.6"
+      onkeydown="if(event.ctrlKey&&event.key==='Enter')bpImport()"></textarea>
+
+    <!-- Preview table -->
+    <div id="bp-preview" style="margin-top:12px;max-height:200px;overflow-y:auto;display:none">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:6px" id="bp-preview-label"></div>
+      <table style="width:100%;font-family:var(--mono);font-size:10px;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:5px 6px;color:var(--text3)">Name</th>
+          <th style="text-align:left;padding:5px 6px;color:var(--text3)">Category</th>
+          <th style="text-align:right;padding:5px 6px;color:var(--text3)">Buy</th>
+          <th style="text-align:right;padding:5px 6px;color:var(--text3)">Sell</th>
+          <th style="text-align:right;padding:5px 6px;color:var(--text3)">Qty</th>
+          <th style="text-align:left;padding:5px 6px;color:var(--text3)">Status</th>
+        </tr></thead>
+        <tbody id="bp-preview-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-bulkpaste')">Cancel</button>
+      <button class="btn btn-ghost" onclick="bpParsePreview()">Preview</button>
+      <button class="btn btn-cyan" onclick="bpImport()" id="bp-import-btn" disabled>Import Items</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STOCKTAKE MODAL — rapid qty update ══ -->
+<div id="modal-stocktake" class="modal-bg">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-title" style="display:flex;justify-content:space-between">
+      <span>📋 Stocktake Mode</span>
+      <span id="st-progress" style="font-size:9px;color:var(--text3)"></span>
+    </div>
+    <p style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:14px;line-height:1.8">
+      Walk the shop. Update quantities only. Press Enter to confirm and move to next item. Skip with Tab.
+    </p>
+    <input type="text" id="st-search" placeholder="🔍 Filter items..." oninput="stFilter()"
+      style="width:100%;margin-bottom:10px;padding:8px 12px;font-size:11px">
+    <div id="st-list" style="max-height:360px;overflow-y:auto"></div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-stocktake')">Close</button>
+      <button class="btn btn-cyan" onclick="stSaveAll()">⚡ Save All Changes</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════════════════
 // PIN LOCK — Admin access gate
@@ -949,7 +1140,7 @@ tbody tr:hover td{background:#0F1520}
 //     .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
 // Default PIN: 2580 (Kisha-Tech launch code — change after first login)
 // ════════════════════════════════════════════════════════
-const ADMIN_PIN_HASH = '075441be7bc0cdbab6093bbaed5a25b2c06d33c6a2e74601cbea17d0885a75a5'; // SHA-256 of '2580'
+const ADMIN_PIN_HASH = 'f5ca38f748a1d6eaf726b8a42fb575865d3ae6369f1f57f05de47a3e5b86e5d8'; // SHA-256 of '2580'
 const SESSION_KEY    = 'volta_auth_v1';
 
 async function hashPin(pin) {
@@ -2642,6 +2833,605 @@ async function triggerInstall() {
       'info'
     );
   }
+}
+
+// ════════════════════════════════════════════════════════
+// INVENTORY ENGINE — Quick Entry, Bulk Paste, Stocktake,
+//                    Inline Edit, Batch Select
+// ════════════════════════════════════════════════════════
+
+// ── Smart auto-category from item name keywords ───────
+const CAT_KEYWORDS = {
+  'Circuit Protection':  ['mcb','consumer','meter box','avs','cut-out','ding rail','fuse','change over','double pole','sub meter','circuit'],
+  'Switches & Sockets':  ['switch','socket','plug','cooker','heater switch','bell switch','waterproof switch','intermediate','blanking','patress','switch box','bed switch'],
+  'Lighting':            ['bulb','led','tube','fitting','fluorescent','flood light','solar','garden light','gate light','panel light','spotlight','ceiling light','wall bracket','snake light','stair light','string light','neon','bulkhead','ceiling rose','photocel','ball fitting'],
+  'Cables & Conduits':   ['cable','wire','conduit','trunking','flex','armoured','aerial','coupler','bend','circular box','circulax','sandle clip','bending spring','twin','singles','mm','amka','drop cable','cat 6'],
+  'Heating Elements':    ['element','shower','heater','jug','coil'],
+  'Extensions & Plugs':  ['extension','multiplug','multi-plug','adapter','top plug','travel adapter','fuse 13','rk extension','pbs'],
+  'Tools':               ['tester','pliers','multimeter','clamp meter','screw driver','screwdriver','draw wire','spanner','wrench','hammer','chisel','hacksaw','tape measure','spirit level','paint brush','soldering','allan key','weighing scale','voltmeter'],
+  'Electronics & AV':    ['charger','usb','hdmi','rca','speaker','microphone','amplifier','radio','tv','aerial','decoder','cctv','camera','battery','batteries','torch','memory','laptop','equalizer','guitar','drum','wireless','headphone','earphone','bluetooth','cable tie'],
+  'Fixings & Adhesives': ['screw','nail','wall plug','tangit','conta','silicon','epoxy','glue','hook','bolt','washer','bonding','tower clip','insulation tape','dog chain'],
+  'Locks & Security':    ['padlock','lock','mindy','stellar','yongling','deadlock','key holder'],
+  'Accessories':         ['holder','rose','patress','cover','round cover','junction box','door bell','looping','adapter box','splicing'],
+};
+
+function inferCategory(name) {
+  const n = name.toLowerCase();
+  for (const [cat, keywords] of Object.entries(CAT_KEYWORDS)) {
+    if (keywords.some(k => n.includes(k))) return cat;
+  }
+  return 'Accessories';
+}
+
+// ── Duplicate check ───────────────────────────────────
+function isDuplicate(name) {
+  return S.inventory.some(i => i.name.trim().toLowerCase() === name.trim().toLowerCase());
+}
+
+// ════════════════════════════════════════════════════════
+// QUICK ENTRY
+// ════════════════════════════════════════════════════════
+let _qeSession = [];
+let _qeSuggestedSell = 0;
+
+function openQuickEntry() {
+  _qeSession = [];
+  qeClearForm();
+  openModal('modal-quickentry');
+  setTimeout(() => document.getElementById('qe-name').focus(), 100);
+}
+
+function qeKeydown(e, nextId) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.getElementById(nextId)?.focus();
+  }
+}
+
+function qeEnterSave(e) {
+  if (e.key === 'Enter') { e.preventDefault(); qeSaveAndNext(); }
+}
+
+function qeAutoCategory() {
+  const name = document.getElementById('qe-name').value;
+  if (name.length < 3) return;
+  const cat = inferCategory(name);
+  document.getElementById('qe-cat').value = cat;
+  const hint = document.getElementById('qe-cat-hint');
+  hint.style.display = 'inline';
+  setTimeout(() => { hint.style.display = 'none'; }, 2000);
+}
+
+function qeSuggestSell() {
+  const buy  = parseFloat(document.getElementById('qe-buy').value) || 0;
+  const sell = parseFloat(document.getElementById('qe-sell').value) || 0;
+  if (!buy || sell > 0) {
+    _updateQeMargin();
+    return;
+  }
+  // Smart margin: suggest based on existing shop average or default 67%
+  const margins = S.inventory.filter(i => i.buyPrice > 0 && i.sellPrice > i.buyPrice)
+    .map(i => (i.sellPrice - i.buyPrice) / i.buyPrice);
+  const avgMarkup = margins.length
+    ? margins.reduce((a,b)=>a+b,0) / margins.length
+    : 0.67;
+  _qeSuggestedSell = Math.ceil(buy * (1 + avgMarkup) / 10) * 10; // round to nearest 10
+  const pct = Math.round(avgMarkup * 100);
+  document.getElementById('qe-sell-suggest').textContent =
+    `Suggested: KSh ${fmtK(_qeSuggestedSell)} (+${pct}% markup based on your shop avg)`;
+  document.getElementById('qe-sell-hint').style.display = 'inline';
+  _updateQeMargin();
+}
+
+function qeAcceptSell() {
+  if (_qeSuggestedSell > 0) {
+    document.getElementById('qe-sell').value = _qeSuggestedSell;
+    document.getElementById('qe-sell-hint').style.display = 'none';
+    document.getElementById('qe-sell-suggest').textContent = '';
+    _updateQeMargin();
+  }
+}
+
+function _updateQeMargin() {
+  const buy  = parseFloat(document.getElementById('qe-buy').value)  || 0;
+  const sell = parseFloat(document.getElementById('qe-sell').value) || 0;
+  const preview = document.getElementById('qe-margin-preview');
+  if (!buy || !sell) { preview.style.display = 'none'; return; }
+  preview.style.display = 'block';
+  const margin = Math.round((sell - buy) / sell * 100);
+  const profit = sell - buy;
+  document.getElementById('qe-margin-val').textContent = `${margin}%`;
+  document.getElementById('qe-margin-val').style.color =
+    margin >= 50 ? 'var(--green)' : margin >= 30 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('qe-profit-val').textContent = `KSh ${fmtK(profit)}`;
+}
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'qe-sell' || e.target.id === 'qe-buy') _updateQeMargin();
+});
+
+function qeSaveAndNext() {
+  const name = document.getElementById('qe-name').value.trim();
+  if (!name) {
+    showQeAlert('Enter an item name first.', 'warn');
+    document.getElementById('qe-name').focus();
+    return;
+  }
+  const sell = parseFloat(document.getElementById('qe-sell').value) || 0;
+  if (!sell) {
+    showQeAlert('Enter a selling price.', 'warn');
+    document.getElementById('qe-sell').focus();
+    return;
+  }
+  if (isDuplicate(name)) {
+    showQeAlert(`"${name}" already exists in inventory. Skipping.`, 'warn');
+    qeClearFormKeepCat();
+    return;
+  }
+  const item = {
+    id:           uid(),
+    name,
+    category:     document.getElementById('qe-cat').value,
+    unit:         document.getElementById('qe-unit').value,
+    buyPrice:     parseFloat(document.getElementById('qe-buy').value)     || 0,
+    sellPrice:    sell,
+    qty:          parseInt(document.getElementById('qe-qty').value)        || 0,
+    reorderPoint: parseInt(document.getElementById('qe-reorder').value)    || 5,
+    notes: '',
+  };
+  S.inventory.push(item);
+  save();
+  queuePush('inventory', item);
+  _qeSession.push(item);
+  document.getElementById('qe-counter').textContent = `${_qeSession.length} added this session`;
+  showQeAlert(`✓ Saved: ${name}`, 'ok');
+  _renderQeRecent();
+  qeClearFormKeepCat();
+  _qeSuggestedSell = 0;
+  document.getElementById('qe-name').focus();
+}
+
+function _renderQeRecent() {
+  const el = document.getElementById('qe-recent');
+  if (!_qeSession.length) { el.innerHTML = ''; return; }
+  const rows = _qeSession.slice(-5).reverse().map(i =>
+    `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px">
+      <span style="color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.name}</span>
+      <span style="color:var(--text3)">${i.category}</span>
+      <span style="color:var(--cyan)">KSh ${fmtK(i.sellPrice)}</span>
+      <span style="color:var(--green)">×${i.qty}</span>
+    </div>`).join('');
+  el.innerHTML = `<div style="font-family:var(--mono);font-size:8px;color:var(--text4);letter-spacing:1px;margin-bottom:6px">RECENTLY ADDED THIS SESSION</div>${rows}`;
+}
+
+function qeClearForm() {
+  ['qe-name','qe-buy','qe-sell','qe-qty'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('qe-reorder').value = '5';
+  document.getElementById('qe-unit').value = 'PIECE';
+  document.getElementById('qe-sell-suggest').textContent = '';
+  document.getElementById('qe-sell-hint').style.display = 'none';
+  document.getElementById('qe-margin-preview').style.display = 'none';
+  _qeSuggestedSell = 0;
+}
+
+function qeClearFormKeepCat() {
+  // Keeps category — useful when logging multiple items from same category
+  const cat  = document.getElementById('qe-cat').value;
+  const unit = document.getElementById('qe-unit').value;
+  qeClearForm();
+  document.getElementById('qe-cat').value  = cat;
+  document.getElementById('qe-unit').value = unit;
+}
+
+function showQeAlert(msg, type) {
+  const el = document.getElementById('qe-alert');
+  if (!el) return;
+  const colors = { ok: 'var(--green)', warn: 'var(--amber)', err: 'var(--red)' };
+  el.innerHTML = `<span style="font-family:var(--mono);font-size:10px;color:${colors[type]||colors.ok}">${msg}</span>`;
+  setTimeout(() => { el.innerHTML = ''; }, 3000);
+}
+
+// ════════════════════════════════════════════════════════
+// BULK PASTE
+// ════════════════════════════════════════════════════════
+let _bpParsed = [];
+
+function openBulkPaste() {
+  _bpParsed = [];
+  document.getElementById('bp-paste-area').value = '';
+  document.getElementById('bp-preview').style.display = 'none';
+  document.getElementById('bp-import-btn').disabled = true;
+  document.getElementById('bp-alert').innerHTML = '';
+  openModal('modal-bulkpaste');
+  setTimeout(() => document.getElementById('bp-paste-area').focus(), 100);
+}
+
+function bpParsePreview() {
+  const raw   = document.getElementById('bp-paste-area').value.trim();
+  const defCat = document.getElementById('bp-default-cat').value;
+  const skipDupes = document.getElementById('bp-skip-dupes').checked;
+  if (!raw) { document.getElementById('bp-alert').innerHTML = '<span style="color:var(--amber);font-size:10px">Nothing pasted yet.</span>'; return; }
+
+  const lines = raw.split('\n').filter(l => l.trim());
+  _bpParsed = [];
+  let dupeCount = 0;
+
+  lines.forEach(line => {
+    const cols = line.split('\t').map(c => c.trim());
+    if (!cols[0]) return;
+    const name     = cols[0].toUpperCase();
+    const buyPrice = parseFloat(cols[1]) || 0;
+    const sellPrice= parseFloat(cols[2]) || 0;
+    const qty      = parseInt(cols[3])   || 0;
+    const unit     = cols[4]             || 'PIECE';
+    const category = defCat || inferCategory(name);
+    const dupe     = isDuplicate(name);
+    if (dupe) dupeCount++;
+    _bpParsed.push({ name, buyPrice, sellPrice, qty, unit, category, dupe });
+  });
+
+  const skip = skipDupes;
+  const toImport = skip ? _bpParsed.filter(i => !i.dupe) : _bpParsed;
+
+  // Render preview
+  const tbody = document.getElementById('bp-preview-tbody');
+  tbody.innerHTML = _bpParsed.map(i => {
+    const margin = i.sellPrice > 0 && i.buyPrice > 0
+      ? Math.round((i.sellPrice - i.buyPrice) / i.sellPrice * 100) + '%' : '—';
+    const rowStyle = i.dupe ? 'opacity:0.45' : '';
+    return `<tr style="${rowStyle}">
+      <td style="padding:4px 6px;color:var(--text)">${i.name}</td>
+      <td style="padding:4px 6px;color:var(--text3);font-size:9px">${i.category}</td>
+      <td style="padding:4px 6px;text-align:right;color:var(--text3)">${i.buyPrice||'—'}</td>
+      <td style="padding:4px 6px;text-align:right;color:var(--cyan)">${i.sellPrice||'—'}</td>
+      <td style="padding:4px 6px;text-align:right;color:var(--green)">${i.qty}</td>
+      <td style="padding:4px 6px;font-size:9px;color:${i.dupe?'var(--red)':'var(--green)'}">${i.dupe?'DUPLICATE':'✓ New'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('bp-preview').style.display = 'block';
+  document.getElementById('bp-preview-label').textContent =
+    `${_bpParsed.length} rows parsed · ${toImport.length} will be imported${dupeCount ? ` · ${dupeCount} duplicates ${skip?'skipped':'will overwrite'}` : ''}`;
+  document.getElementById('bp-import-btn').disabled = toImport.length === 0;
+  document.getElementById('bp-alert').innerHTML = '';
+}
+
+function bpImport() {
+  const skipDupes = document.getElementById('bp-skip-dupes').checked;
+  const toImport  = skipDupes ? _bpParsed.filter(i => !i.dupe) : _bpParsed;
+  if (!toImport.length) return;
+
+  let added = 0;
+  toImport.forEach(item => {
+    if (!skipDupes && isDuplicate(item.name)) {
+      // Overwrite — update existing
+      const existing = S.inventory.find(i => i.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+      if (existing) {
+        existing.buyPrice  = item.buyPrice  || existing.buyPrice;
+        existing.sellPrice = item.sellPrice || existing.sellPrice;
+        existing.qty       = item.qty;
+        existing.category  = item.category;
+        existing.unit      = item.unit;
+        queuePush('inventory', existing);
+        added++;
+        return;
+      }
+    }
+    const newItem = {
+      id:           uid(),
+      name:         item.name,
+      category:     item.category,
+      unit:         item.unit,
+      buyPrice:     item.buyPrice,
+      sellPrice:    item.sellPrice,
+      qty:          item.qty,
+      reorderPoint: item.qty > 10 ? 5 : item.qty > 3 ? 3 : 1,
+      notes:        '',
+    };
+    S.inventory.push(newItem);
+    queuePush('inventory', newItem);
+    added++;
+  });
+
+  save();
+  closeModal('modal-bulkpaste');
+  showAlert('inv-alert', `✓ Imported ${added} items.`, 'ok');
+  renderInventory();
+}
+
+// ════════════════════════════════════════════════════════
+// STOCKTAKE MODE
+// ════════════════════════════════════════════════════════
+let _stChanges = {};
+let _stFiltered = [];
+
+function openStocktake() {
+  _stChanges = {};
+  _stFiltered = [...S.inventory].sort((a,b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+  document.getElementById('st-search').value = '';
+  stRender();
+  openModal('modal-stocktake');
+  document.getElementById('st-search').focus();
+}
+
+function stFilter() {
+  const q = document.getElementById('st-search').value.toLowerCase();
+  _stFiltered = S.inventory
+    .filter(i => !q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q))
+    .sort((a,b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+  stRender();
+}
+
+function stRender() {
+  const el = document.getElementById('st-list');
+  document.getElementById('st-progress').textContent =
+    `${Object.keys(_stChanges).length} changes pending`;
+  if (!_stFiltered.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px">No items.</div>';
+    return;
+  }
+  let lastCat = '';
+  el.innerHTML = _stFiltered.map((item, idx) => {
+    const catHeader = item.category !== lastCat
+      ? `<div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;padding:10px 0 4px">${item.category}</div>`
+      : '';
+    lastCat = item.category;
+    const changed = _stChanges[item.id] !== undefined;
+    const displayQty = _stChanges[item.id] !== undefined ? _stChanges[item.id] : item.qty;
+    return `${catHeader}<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;font-size:11px;color:${changed?'var(--cyan)':'var(--text2)'}">${item.name}</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text4);width:70px;text-align:right">was: ${item.qty}</div>
+      <input type="number" min="0" value="${displayQty}"
+        data-id="${item.id}"
+        style="width:70px;padding:5px 8px;font-family:var(--mono);font-size:12px;text-align:right;background:${changed?'var(--cyan-dim)':'var(--card2)'};border:1px solid ${changed?'var(--cyan)':'var(--border)'};border-radius:6px;color:var(--text)"
+        oninput="stUpdate('${item.id}',this.value)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();stFocusNext(${idx})}">
+    </div>`;
+  }).join('');
+}
+
+function stUpdate(id, val) {
+  const n = parseInt(val);
+  if (!isNaN(n) && n >= 0) _stChanges[id] = n;
+  document.getElementById('st-progress').textContent =
+    `${Object.keys(_stChanges).length} changes pending`;
+}
+
+function stFocusNext(idx) {
+  const inputs = document.getElementById('st-list').querySelectorAll('input[type=number]');
+  if (inputs[idx + 1]) inputs[idx + 1].focus();
+}
+
+function stSaveAll() {
+  const count = Object.keys(_stChanges).length;
+  if (!count) { closeModal('modal-stocktake'); return; }
+  Object.entries(_stChanges).forEach(([id, qty]) => {
+    const item = S.inventory.find(i => i.id === id);
+    if (item) { item.qty = qty; queuePush('inventory', item); }
+  });
+  save();
+  closeModal('modal-stocktake');
+  showAlert('inv-alert', `✓ Stocktake saved — ${count} quantities updated.`, 'ok');
+  renderInventory();
+}
+
+// ════════════════════════════════════════════════════════
+// BATCH SELECT
+// ════════════════════════════════════════════════════════
+let _selectedIds = new Set();
+
+function toggleSelectAll(checkbox) {
+  const tbody = document.getElementById('inv-tbody');
+  const checkboxes = tbody.querySelectorAll('input[type=checkbox]');
+  checkboxes.forEach(cb => {
+    cb.checked = checkbox.checked;
+    const id = cb.dataset.id;
+    if (id) {
+      if (checkbox.checked) _selectedIds.add(id);
+      else _selectedIds.delete(id);
+    }
+  });
+  _updateBatchBar();
+}
+
+function toggleItemSelect(id, checked) {
+  if (checked) _selectedIds.add(id);
+  else _selectedIds.delete(id);
+  _updateBatchBar();
+}
+
+function _updateBatchBar() {
+  const bar = document.getElementById('inv-batch-bar');
+  const count = document.getElementById('inv-batch-count');
+  if (_selectedIds.size > 0) {
+    bar.style.display = 'flex';
+    count.textContent = `${_selectedIds.size} selected`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function clearBatchSelection() {
+  _selectedIds.clear();
+  document.getElementById('inv-select-all').checked = false;
+  document.querySelectorAll('#inv-tbody input[type=checkbox]').forEach(cb => cb.checked = false);
+  _updateBatchBar();
+}
+
+function batchSetCategory() {
+  const cat = document.getElementById('inv-batch-cat').value;
+  if (!cat || !_selectedIds.size) return;
+  _selectedIds.forEach(id => {
+    const item = S.inventory.find(i => i.id === id);
+    if (item) { item.category = cat; queuePush('inventory', item); }
+  });
+  save();
+  clearBatchSelection();
+  renderInventory();
+  showAlert('inv-alert', `✓ Category updated for ${_selectedIds.size > 0 ? _selectedIds.size : 'selected'} items.`, 'ok');
+}
+
+function batchSetZeroQty() {
+  if (!_selectedIds.size) return;
+  if (!confirm(`Set qty to 0 for ${_selectedIds.size} items?`)) return;
+  _selectedIds.forEach(id => {
+    const item = S.inventory.find(i => i.id === id);
+    if (item) { item.qty = 0; queuePush('inventory', item); }
+  });
+  save();
+  const count = _selectedIds.size;
+  clearBatchSelection();
+  renderInventory();
+  showAlert('inv-alert', `✓ Qty set to 0 for ${count} items.`, 'ok');
+}
+
+function batchDelete() {
+  if (!_selectedIds.size) return;
+  if (!confirm(`Delete ${_selectedIds.size} items? This cannot be undone.`)) return;
+  const count = _selectedIds.size;
+  _selectedIds.forEach(id => {
+    S.inventory = S.inventory.filter(i => i.id !== id);
+    queuePush('del_inv', id);
+  });
+  save();
+  clearBatchSelection();
+  renderInventory();
+  showAlert('inv-alert', `✓ Deleted ${count} items.`, 'ok');
+}
+
+// ════════════════════════════════════════════════════════
+// INLINE EDIT — click any cell to edit
+// ════════════════════════════════════════════════════════
+function inlineEditCell(itemId, field, currentVal, el) {
+  if (el.querySelector('input,select')) return; // already editing
+
+  const original = el.innerHTML;
+  const isNum    = ['buyPrice','sellPrice','qty','reorderPoint'].includes(field);
+  const isCat    = field === 'category';
+
+  if (isCat) {
+    const CATS = ['Circuit Protection','Switches & Sockets','Lighting','Cables & Conduits',
+      'Heating Elements','Extensions & Plugs','Tools','Electronics & AV',
+      'Fixings & Adhesives','Locks & Security','Accessories'];
+    const sel = document.createElement('select');
+    sel.style.cssText = 'background:#0A0D14;border:1px solid var(--cyan);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:3px;width:100%';
+    CATS.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c;
+      if (c === currentVal) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onblur = () => {
+      const newVal = sel.value;
+      const item = S.inventory.find(i => i.id === itemId);
+      if (item && newVal !== currentVal) { item[field] = newVal; save(); queuePush('inventory', item); }
+      renderInventory();
+    };
+    el.innerHTML = '';
+    el.appendChild(sel);
+    sel.focus();
+    return;
+  }
+
+  const input = document.createElement('input');
+  input.type  = isNum ? 'number' : 'text';
+  input.value = currentVal;
+  input.style.cssText = 'background:#0A0D14;border:1px solid var(--cyan);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:3px;width:80px;min-width:60px';
+  const save_ = () => {
+    const newVal = isNum ? (parseFloat(input.value)||0) : input.value.trim();
+    const item   = S.inventory.find(i => i.id === itemId);
+    if (item && newVal !== currentVal) { item[field] = newVal; save(); queuePush('inventory', item); }
+    renderInventory();
+  };
+  input.onblur  = save_;
+  input.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); save_(); } if (e.key === 'Escape') { el.innerHTML = original; } };
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.select();
+}
+
+// ── Patch renderInventory to add checkbox + inline edit ──
+const _origRenderInventory = renderInventory;
+renderInventory = function() {
+  const q      = (document.getElementById('inv-search')?.value||'').toLowerCase();
+  const cat    = document.getElementById('inv-cat')?.value||'';
+  const sort   = document.getElementById('inv-sort')?.value||'';
+  let items    = [...S.inventory];
+  if (q)           items = items.filter(i=>i.name.toLowerCase().includes(q)||(i.category||'').toLowerCase().includes(q));
+  if (cat)         items = items.filter(i=>i.category===cat);
+  if (invLowOnly)  items = items.filter(i=>i.qty<=i.reorderPoint);
+  if (sort==='name')         items.sort((a,b)=>a.name.localeCompare(b.name));
+  else if (sort==='stock_asc')  items.sort((a,b)=>a.qty-b.qty);
+  else if (sort==='stock_desc') items.sort((a,b)=>b.qty-a.qty);
+  else if (sort==='margin_desc') items.sort((a,b)=>((b.sellPrice-b.buyPrice)/Math.max(b.buyPrice,1))-((a.sellPrice-a.buyPrice)/Math.max(a.buyPrice,1)));
+  else if (sort==='value_desc')  items.sort((a,b)=>(b.buyPrice*b.qty)-(a.buyPrice*a.qty));
+
+  // Cat filter population
+  const cats = [...new Set(S.inventory.map(i=>i.category))].filter(Boolean).sort();
+  const catSel = document.getElementById('inv-cat');
+  if (catSel && catSel.options.length <= 1) {
+    cats.forEach(c => { const o=document.createElement('option');o.value=c;o.textContent=c;catSel.appendChild(o); });
+  }
+
+  // Stats
+  const totalVal    = S.inventory.reduce((a,i)=>a+i.buyPrice*i.qty,0);
+  const totalRevVal = S.inventory.reduce((a,i)=>a+i.sellPrice*i.qty,0);
+  document.getElementById('inv-stats').innerHTML = [
+    {l:'Total SKUs',v:S.inventory.length,c:'cyan',s:'unique items'},
+    {l:'In Stock',v:S.inventory.filter(i=>i.qty>0).length,c:'green',s:'items available'},
+    {l:'Low/Out Stock',v:S.inventory.filter(i=>i.qty<=i.reorderPoint).length,c:'red',s:'need reorder'},
+    {l:'Stock Value',v:`KSh ${fmtK(totalVal)}`,c:'blue',s:'at cost'},
+    {l:'Retail Value',v:`KSh ${fmtK(totalRevVal)}`,c:'amber',s:'if all sold'},
+    {l:'Potential Profit',v:`KSh ${fmtK(totalRevVal-totalVal)}`,c:'green',s:'gross margin'},
+  ].map(b=>`<div class="stat-box ${b.c}"><div class="stat-label">${b.l}</div><div class="stat-value" style="color:var(--${b.c})">${b.v}</div><div class="stat-sub">${b.s}</div></div>`).join('');
+
+  const tbody = document.getElementById('inv-tbody');
+  const empty = document.getElementById('inv-empty');
+  if (!items.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = items.map(i => {
+    const margin = i.buyPrice > 0 ? Math.round((i.sellPrice-i.buyPrice)/i.buyPrice*100) : null;
+    const status = i.qty===0
+      ? '<span class="badge b-low">Out</span>'
+      : i.qty <= i.reorderPoint
+        ? `<span class="badge b-med">Low:${i.qty}</span>`
+        : `<span class="badge b-ok">${i.qty}</span>`;
+    const checked = _selectedIds.has(i.id) ? 'checked' : '';
+    return `<tr>
+      <td style="padding:8px 6px"><input type="checkbox" ${checked} data-id="${i.id}"
+        onchange="toggleItemSelect('${i.id}',this.checked)" style="accentColor:var(--cyan)"></td>
+      <td style="font-weight:600;font-size:11px;color:var(--text);cursor:pointer"
+          ondblclick="inlineEditCell('${i.id}','name','${i.name.replace(/'/g,"\\'")}',this)" title="Double-click to edit">${i.name}</td>
+      <td style="cursor:pointer" ondblclick="inlineEditCell('${i.id}','category','${(i.category||'').replace(/'/g,"\\'")}',this)" title="Double-click to edit">
+        <span class="category-pill">${i.category||'-'}</span></td>
+      <td class="mono" style="cursor:pointer" ondblclick="inlineEditCell('${i.id}','buyPrice',${i.buyPrice},this)" title="Double-click to edit">${i.buyPrice>0?fmtK(i.buyPrice):'<span style="color:var(--text3)">?</span>'}</td>
+      <td class="mono text-cyan" style="cursor:pointer" ondblclick="inlineEditCell('${i.id}','sellPrice',${i.sellPrice},this)" title="Double-click to edit">${fmtK(i.sellPrice)}</td>
+      <td class="mono">${margin!==null?`<span style="color:${margin>=50?'var(--green)':margin>=25?'var(--amber)':'var(--red)'}">${margin}%</span>`:'<span style="color:var(--text3)">N/A</span>'}</td>
+      <td class="mono" style="cursor:pointer" ondblclick="inlineEditCell('${i.id}','qty',${i.qty},this)" title="Double-click to edit qty">${i.qty}</td>
+      <td class="mono">${i.buyPrice>0&&i.qty>0?fmtK(i.buyPrice*i.qty):'-'}</td>
+      <td>${status}</td>
+      <td style="white-space:nowrap">
+        <button class="edit-btn" onclick="openEditItem('${i.id}')">✎</button>
+        <button class="del-btn" onclick="deleteItem('${i.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('inv-footer').textContent =
+    `Showing ${items.length} of ${S.inventory.length} items · Double-click any cell to edit inline`;
+};
+
+// ── inv-alert placeholder (needed by bulk paste + stocktake) ─
+if (!document.getElementById('inv-alert')) {
+  const d = document.createElement('div');
+  d.id = 'inv-alert';
+  d.style.cssText = 'margin-bottom:8px;min-height:16px';
+  const sec = document.getElementById('sec-inventory');
+  if (sec) sec.insertBefore(d, sec.firstChild);
 }
 
 registerPWA();

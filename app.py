@@ -1,182 +1,132 @@
-# ── LOAD ENV ─────────────────────────────────────────────
+"""
+app.py — Kisha-Tech Electronics AI Backend
+Hosted on Render at: kisha-tech-backend.onrender.com
+
+Endpoints:
+    POST /ask      — AI query from Volta OS admin frontend
+    GET  /health   — uptime check (Volta OS pings this)
+
+Architecture:
+    - Groq key lives server-side — never exposed to browser
+    - Receives: { message, context, history }
+    - Returns:  { reply }
+    - Full shop context (inventory + financials) sent from Volta OS frontend
+"""
+
 import os
-from dotenv import load_dotenv
-
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
-
-# ── IMPORTS ──────────────────────────────────────────────
+import json
+import logging
 from flask import Flask, request, jsonify
-import requests
 from flask_cors import CORS
-from supabase import create_client
+from dotenv import load_dotenv
+from groq import Groq
 
-# ── INIT ─────────────────────────────────────────────────
-app = Flask(__name__)
-CORS(app)
+load_dotenv()
 
-# ── ENV ──────────────────────────────────────────────────
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("kishatech.backend")
 
+# ── Env validation — fail loudly on startup if key is missing ─────────────────
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY not set in .env")
-if not SUPABASE_URL:
-    raise ValueError("SUPABASE_URL not set in .env")
-if not SUPABASE_KEY:
-    raise ValueError("SUPABASE_KEY not set in .env")
+    logger.error("FATAL: GROQ_API_KEY not set. Set it in Render environment vars.")
+    raise SystemExit("GROQ_API_KEY required")
 
-# ── SUPABASE ──────────────────────────────────────────────
-try:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
-    raise RuntimeError(f"Supabase init failed: {str(e)}")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
-# ── HELPERS ───────────────────────────────────────────────
-def get_inventory():
-    try:
-        res = supabase.table("inventory").select("*").execute()
-        return res.data if res.data else []
-    except Exception as e:
-        print("[INVENTORY] Fetch error:", str(e))
-        return []
+logger.info(f"Kisha-Tech backend starting | Groq key: {GROQ_API_KEY[:8]}...")
+logger.info(f"Supabase: {'✓ configured' if SUPABASE_URL else '✗ not set'}")
 
-def compute_metrics(items):
-    try:
-        total_items = len(items)
-        total_stock_value = sum(
-            (i.get("sell_price", 0) or 0) * (i.get("qty", 0) or 0)
-            for i in items
-        )
-        low_stock = [i for i in items if (i.get("qty", 0) or 0) <= 5]
-        return {
-            "total_items":      total_items,
-            "total_stock_value": total_stock_value,
-            "low_stock_count":  len(low_stock),
-        }
-    except Exception as e:
-        print("[METRICS] Error:", str(e))
-        return {}
+# ── Flask + Groq ──────────────────────────────────────────────────────────────
+app   = Flask(__name__)
+CORS(app, origins=["https://kishatechadmin.vercel.app", "https://kishatech.vercel.app"])
 
-def call_groq(messages_payload: list, max_tokens: int = 800) -> str:
-    """Single Groq call. Raises on failure."""
-    response = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type":  "application/json",
-        },
-        json={
-            "model":       "llama-3.3-70b-versatile",
-            "messages":    messages_payload,
-            "max_tokens":  max_tokens,
-            "temperature": 0.3,
-        },
-        timeout=30,
-    )
-    if response.status_code != 200:
-        print("[GROQ] Error:", response.text)
-        raise RuntimeError(f"Groq API error {response.status_code}")
-    data = response.json()
-    return (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "No response from AI")
-    )
+client = Groq(api_key=GROQ_API_KEY)
+MODEL  = "llama-3.3-70b-versatile"
+
+SYSTEM_BASE = """You are Sarah, the AI assistant for Kisha-Tech Electronics & Hardware Store.
+Location: Machakos Kenya Israel, opposite Manza College.
+Hours: Mon–Sat 7:00 AM – 7:00 PM, Sun 9:00 AM – 5:00 PM.
+
+You are the shop's financial and inventory advisor. The shop owner asks you questions about
+their business data. Be direct, specific, and always use KSh figures.
+Answer in plain English. Under 300 words unless a detailed breakdown is requested.
+Never make up inventory items or prices — only use what's in the context provided."""
 
 
-# ── /ask — main AI endpoint ───────────────────────────────
-#
-# Accepts two modes:
-#
-# Mode A — lightweight (frontend sends only the message):
-#   { "message": "What is my gross margin?" }
-#   Backend builds context from Supabase inventory.
-#
-# Mode B — rich (frontend sends full context + conversation history):
-#   {
-#     "message":  "What should I restock urgently?",
-#     "context":  "<full shop context string built by frontend>",
-#     "history":  [{ "role": "user"|"assistant", "content": "..." }, ...]
-#   }
-#   Backend uses the provided context directly — no Supabase call needed.
-#
-# Both modes return: { "reply": "<string>" }
-
+# ── /ask ──────────────────────────────────────────────────────────────────────
 @app.route("/ask", methods=["POST"])
-def ask_ai():
+def ask():
     try:
-        body = request.get_json()
-        if not body:
-            return jsonify({"error": "No JSON body"}), 400
+        data    = request.get_json(force=True)
+        message = (data.get("message") or "").strip()
+        context = (data.get("context") or "").strip()
+        history = data.get("history") or []
 
-        user_input = (body.get("message") or "").strip()
-        if not user_input:
-            return jsonify({"error": "message cannot be empty"}), 400
+        if not message:
+            return jsonify({"error": "message is required"}), 400
 
-        # ── Mode B: frontend-provided context (richer, preferred) ──────────
-        rich_context = (body.get("context") or "").strip()
-        history      = body.get("history") or []
+        logger.info(f"/ask | msg={message[:60]} | context_len={len(context)}")
 
-        if rich_context:
-            # Frontend sent full shop context — use it directly
-            system_content = (
-                f"You are a sharp, concise financial AI advisor for an electronics "
-                f"and hardware shop in Machakos, Kenya (Kisha-Tech).\n"
-                f"Answer using real numbers. Be direct, specific, practical. "
-                f"Always quote KSh figures. Under 200 words unless a breakdown is needed.\n\n"
-                f"=== SHOP DATA ===\n{rich_context}"
-            )
-            messages_payload = [{"role": "system", "content": system_content}]
-            # Replay conversation history so context is maintained
-            for turn in history[-10:]:   # cap at 10 turns to stay within token budget
-                if turn.get("role") in ("user", "assistant") and turn.get("content"):
-                    messages_payload.append({
-                        "role":    turn["role"],
-                        "content": str(turn["content"])[:800],  # truncate long turns
-                    })
-            messages_payload.append({"role": "user", "content": user_input})
+        # Build messages array
+        system_content = SYSTEM_BASE
+        if context:
+            system_content += f"\n\n=== SHOP DATA ===\n{context[:4000]}"
 
-        else:
-            # ── Mode A: lightweight — build context from Supabase ───────────
-            inventory = get_inventory()
-            metrics   = compute_metrics(inventory)
-            sample    = inventory[:50]
+        messages = [{"role": "system", "content": system_content}]
 
-            system_content = (
-                f"You are a professional electronics shop analyst for Kisha-Tech, Machakos, Kenya.\n\n"
-                f"Business metrics:\n{metrics}\n\n"
-                f"Inventory sample ({len(inventory)} total items):\n{sample}\n\n"
-                f"Rules:\n- Be concise\n- Use KSh figures\n- Give actionable advice"
-            )
-            messages_payload = [
-                {"role": "system", "content": system_content},
-                {"role": "user",   "content": user_input},
-            ]
+        # Inject conversation history (cap at last 10 turns)
+        for turn in history[-10:]:
+            role    = turn.get("role", "user")
+            content = str(turn.get("content", ""))[:600]
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
 
-        reply = call_groq(messages_payload)
+        messages.append({"role": "user", "content": message})
+
+        completion = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            temperature=0.3,
+            max_tokens=600,
+            timeout=15,
+        )
+
+        reply = completion.choices[0].message.content.strip()
+        logger.info(f"/ask | reply={reply[:60]}")
+
         return jsonify({"reply": reply})
 
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": f"Request failed: {str(e)}"}), 500
     except Exception as e:
-        print("[/ask] Server error:", str(e))
-        return jsonify({"error": f"Server error: {str(e)}"}), 500
+        logger.error(f"/ask error: {repr(e)}")
+        return jsonify({"error": "AI service temporarily unavailable. Try again."}), 500
 
 
-# ── /health ───────────────────────────────────────────────
+# ── /health ───────────────────────────────────────────────────────────────────
 @app.route("/health", methods=["GET"])
 def health():
-    """Lightweight check — no Supabase call, just confirms server is up."""
-    return jsonify({"status": "ok", "service": "Kisha-Tech AI Backend"})
+    return jsonify({
+        "status": "ok",
+        "service": "kisha-tech-backend",
+        "model": MODEL,
+        "groq": "configured" if GROQ_API_KEY else "missing",
+        "supabase": "configured" if SUPABASE_URL else "not set",
+    })
 
 
-# ── / ─────────────────────────────────────────────────────
+# ── Root ──────────────────────────────────────────────────────────────────────
 @app.route("/", methods=["GET"])
-def home():
-    return jsonify({"status": "Kisha-Tech AI backend running"})
+def root():
+    return jsonify({"message": "Kisha-Tech AI Backend — Sarah is live"})
 
 
-# ── RUN ───────────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.getenv("PORT", 5000))
+    logger.info(f"Starting on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
