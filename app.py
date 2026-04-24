@@ -1,4 +1,3 @@
-```python
 """
 app.py — Kisha-Tech Electronics AI Backend
 Hosted on Render at: kisha-tech-backend.onrender.com
@@ -158,4 +157,3 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     logger.info(f"Starting server on port {port}")
     app.run(host="0.0.0.0", port=port, debug=False)
-```
