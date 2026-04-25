@@ -6,6 +6,6 @@ crypto.subtle.digest('SHA-256', new TextEncoder().encode('YOUR-NEW-PIN'))
 
 
 .\venv\Scripts\Activate  
-
+pyhon app.py
 
 neofetch && cmatrix -a -b -r -s
